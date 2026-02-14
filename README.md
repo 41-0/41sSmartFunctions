@@ -284,5 +284,5 @@ Cast a *Rejuvenation rank 1* only when the smart target's health is above 95%:
 # Installation
 
 1. Download this repository.
-2. Move the `41sDruidFunctions` folder into your `Interface/AddOns/` directory.
+2. Move the `41sFunctions` folder into your `Interface/AddOns/` directory.
 3. Restart World of Warcraft.
