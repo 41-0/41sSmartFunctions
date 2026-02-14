@@ -229,7 +229,7 @@ AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_showTargetTexture()", "Show all te
 AddApiAuto(GlobalPanel, "GLOBAL", "But Texture names are not", "Buff names are CASE SENSITIVE")
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_dismount()", "Dismount (***May not work***)")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_RSSelf('p', '>', '80%')", "Resource Checker (Self) l=life, p=power")
-AddApiAuto(GlobalPanel, "GLOBAL", "fo_RSSmart('l', '<', '1000')", "Resource Checker (Smart Target)")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_RSSmart('l', '<', 1000)", "Resource Checker (Smart Target)")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_RS('l', '<=', '20%', 'party1')", "Resource Checker (Manual Target)")
 
 
