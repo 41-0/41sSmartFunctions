@@ -8,21 +8,19 @@
 
 ## Table of Contents
 
-1. [Quick Start Examples](https://www.google.com/search?q=%23quick-start-examples)
-2. [Targeting Priority](https://www.google.com/search?q=%23targeting-priority)
-3. [Druid Specific Features](https://www.google.com/search?q=%23druid-specific)
-* [Form-Specific Wrappers](https://www.google.com/search?q=%23form-specific-wrappers)
-* [Shapeshifting](https://www.google.com/search?q=%23shapeshifting)
-* [Shapeshift Detection](https://www.google.com/search?q=%23shapeshift-detection-booleans)
+1. [Quick Start Examples](#quick-start-examples)
+2. [Targeting Priority](#targeting-priority)
+3. [Druid Specific Features](#druid-specific)
+* [Form-Specific Wrappers](#form-specific-wrappers)
+* [Shapeshifting](#shapeshifting)
+* [Shapeshift Detection](#shapeshifting)
+* [Auto-Shapeshift & Protection](#feature-auto-cancelformshapeshift-and-form-protection)
+5. [Full Technical Reference (Advanced)](#full-technical-reference-advanced)
+* [Aura Checker (fo_aura)](#-aura-checker-fo_aura)
+* [Resource Checker (fo_RS)](#-resource-checker-fo_rs)
 
 
-4. [Auto-Shapeshift & Protection](https://www.google.com/search?q=%23feature-auto-cancelformshapeshift-and-form-protection)
-5. [Full Technical Reference (Advanced)](https://www.google.com/search?q=%23full-technical-reference-advanced)
-* [Aura Checker (fo_aura)](https://www.google.com/search?q=%23-aura-checker-fo_aura)
-* [Resource Checker (fo_RS)](https://www.google.com/search?q=%23-resource-checker-fo_rs)
-
-
-6. [Installation](https://www.google.com/search?q=%23installation)
+6. [Installation](#installation)
 
 ---
 
@@ -60,7 +58,7 @@ For all scripts provided by this addon, the default target priority is:
 
 <BR><BR>
 
-## Druid Specific
+## Druid Specific Features
 
 ### Form-Specific Wrappers
 
@@ -84,7 +82,7 @@ Spam-safe shapeshifting. Unlike standard buttons, these will NOT cancel the form
 * `fo_castTreeForm()`
 * `fo_cancelForm()`
 
-### Shapeshift Detection (Booleans)
+### Shapeshift Detection
 
 These return true or false. Use them for custom `/script if` logic.
 
@@ -97,9 +95,7 @@ These return true or false. Use them for custom `/script if` logic.
 * `isFeral()` — True if in Bear or Cat Form.
 * `isCaster()` — True if in Humanoid Form (no active shapeshift).
 
----
-
-## Feature: Auto Cancelform/Shapeshift and Form Protection
+### Feature: Auto Cancelform/Shapeshift and Form Protection
 
 This addon provides a seamless shapeshifting experience by managing form states automatically.
 All core features can be toggled via the In-game Configuration Panel.
