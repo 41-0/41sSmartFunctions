@@ -150,6 +150,7 @@ The Aura Checker system allows your macros to detect existing buffs or debuffs o
 * **`spellName`**: The name of the buff/debuff or its **Texture Path**.
 * **Name Match**: Use the standard display name (e.g., `"Moonfire"`, `"Mark of the Wild"`). **Note: This is case-sensitive.**
 * **Texture Match**: You can also use the internal texture name or path (e.g., `"Spell_Nature_Rejuvenation"`). This is useful for identifying specific effects that share names or for advanced localization support.
+* **🔍 How to find textures**: Use the command `/script fo_showTargetTexture()` while targeting a unit to print the names of all active textures on that target to your chat frame.
 
 
 * **`unit`**: A valid WoW unit ID (default is `"target"`).
@@ -183,6 +184,14 @@ Check if you have *Thorns* active on yourself; if not, cast it:
 
 ```lua
 /script if not fo_auraSelf("Thorns") then fo_cast("Thorns") end
+
+```
+
+If you prefer using textures to avoid case-sensitivity or localization issues:
+
+```lua
+-- Using the texture name for Rejuvenation
+/script if not fo_auraSmart("Spell_Nature_Rejuvenation") then fo_cast("Rejuvenation") end
 
 ```
 
