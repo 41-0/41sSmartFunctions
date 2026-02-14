@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: 41sFunctions
+
+core.lua
+Druid.lua
+_GUI.lua
+
+## SavedVariables: fo_Settings
