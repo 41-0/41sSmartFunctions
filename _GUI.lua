@@ -1,9 +1,9 @@
 -- ==========================================
 -- 0. Configuration & Constants
 -- ==========================================
-local WINDOW_WIDTH = 450
-local WINDOW_HEIGHT = 540
-local MAX_ITEMS_PER_COLUMN = 8 -- Max items before starting a new column
+local WINDOW_WIDTH = 650
+local WINDOW_HEIGHT = 620
+local MAX_ITEMS_PER_COLUMN = 10 -- Max items before starting a new column
 
 -- ==========================================
 -- 1. Initialization
@@ -13,7 +13,7 @@ if fo_Settings == nil then fo_Settings = {} end
 -- ==========================================
 -- 2. Minimap Button
 -- ==========================================
-local MyBtn = CreateFrame("Button", "MyMinimapButton", UIParent)
+local MyBtn = CreateFrame("Button", "MyMinimapButton", Minimap)
 MyBtn:SetWidth(32); MyBtn:SetHeight(32); MyBtn:SetFrameStrata("HIGH")
 MyBtn:SetPoint("CENTER", UIParent, "CENTER")
 
@@ -228,9 +228,19 @@ AddApiAuto(GlobalPanel, "GLOBAL", "fo_aura('Faerie Fire', 'targettarget')", "Aur
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_showTargetTexture()", "Show all textures on current target")
 AddApiAuto(GlobalPanel, "GLOBAL", "But Texture names are not", "Buff names are CASE SENSITIVE")
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_dismount()", "Dismount (***May not work***)")
+AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_startAttack()", "Spammable auto attack")
+AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_startShoot()", "Shoots ALL ranged weapon")
+AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_startStealth()", "Spammable Stealth")
+AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_stopAll()", "Stpos all combat action")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_RSSelf('p', '>', '80%')", "Resource Checker (Self) l=life, p=power")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_RSSmart('l', '<', 1000)", "Resource Checker (Smart Target)")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_RS('l', '<=', '20%', 'party1')", "Resource Checker (Manual Target)")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_isCD('Swiftmend')", "Cooldown Checker (Self Only)")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasShield()", "Returns true if Shield equipped")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_has2H()", "Returns true if 2H equipped")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasDW()", "Returns true if Dual-Wielding")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasSpell('swiftmend')", "True if the spell is in your spellbook")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_isStealth()", "Returns true if Stealthed(any kind))")
 
 
 

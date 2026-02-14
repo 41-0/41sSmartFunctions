@@ -167,6 +167,36 @@ end
 -- Public API (Functions to use in Macros)
 -- ==========================================================
 
+
+-- ==========================================================
+-- Debug Tool: Show all textures on your current target
+-- ==========================================================
+function fo_showTargetTexture()
+    local unit = "target"
+    if not UnitExists(unit) then 
+        DEFAULT_CHAT_FRAME:AddMessage("No target selected.")
+        return 
+    end
+
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ffff--- Target Buff/Debuff Textures ---|r")
+    
+    local types = {"HELPFUL", "HARMFUL"}
+    for _, auraType in pairs(types) do
+        DEFAULT_CHAT_FRAME:AddMessage("|cffaaaaaa[" .. auraType .. "]|r")
+        for i = 1, 32 do
+            local texture
+            if auraType == "HELPFUL" then
+                texture = UnitBuff(unit, i)
+            else
+                texture = UnitDebuff(unit, i)
+            end
+            
+            if not texture then break end
+            DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffffff00[%d]|r %s", i, texture))
+        end
+    end
+end
+
 -- ==========================================================
 -- Aura Checker
 -- ==========================================================
@@ -191,140 +221,6 @@ function fo_auraSmart(spellName, forceMouseover)
     local u = _GetSmartTarget(spellName, forceMouseover)
     local pureName = string.gsub(spellName, "%(Rank %d+%)", "")
     return _CheckAuraByName(pureName, u)
-end
-
-
--- ==========================================================
--- Resource CHECKER
--- ==========================================================
-
---- [Base/Manual] fo_RS(stat, op, val, unit)
--- @param unit: Optional (Defaults to "target")
-    function fo_RS(statType, operator, threshold, unit)
-    unit = unit or "target"
-    if not UnitExists(unit) then return false end
-
-    local current, max
-    statType = string.lower(statType)
-    
-    -- 1. Get stats with shorthand support
-    -- "l" = Life(HP), "p" = Power(Mana, Rage, Energy)
-    if statType == "l" or statType == "hp" or statType == "health" then
-        current = UnitHealth(unit)
-        max = UnitHealthMax(unit)
-    elseif statType == "p" or statType == "mana" or statType == "rage" or statType == "energy" then
-        current = UnitMana(unit)
-        max = UnitManaMax(unit)
-    else
-        return false
-    end
-
-    -- 2. Threshold Analysis ("50%" vs 500)
-    local targetVal
-    if type(threshold) == "string" and string.find(threshold, "%%$") then
-        local p = tonumber(string.sub(threshold, 1, -2))
-        targetVal = (max * p) / 100
-    else
-        targetVal = tonumber(threshold)
-    end
-
-    if not targetVal or not current then return false end
-
-    -- 3. Logic Comparison
-    if operator == ">" then return current > targetVal
-    elseif operator == "<" then return current < targetVal
-    elseif operator == ">=" then return current >= targetVal
-    elseif operator == "<=" then return current <= targetVal
-    elseif operator == "==" then return current == targetVal
-    end
-    return false
-end
-
---- [Self] fo_RSSelf(stat, op, val)
-function fo_RSSelf(stat, op, val)
-    return fo_RS(stat, op, val, "player")
-end
-
---- [Smart] fo_RSSmart(stat, op, val, force)
-function fo_RSSmart(stat, op, val, force)
-    local unit = _GetSmartTarget("RSCheck", force)
-    return fo_RS(stat, op, val, unit)
-end
-
--- ==========================================================
--- Dismount Logic 
--- ==========================================================
--- List of specific mount textures found on this server
-FO_MOUNT_TEXTURES = { 
-    "inv_pet_speedy", 
-    "ability_mount_",
-    "spell_nature_swiftness",
-    "inv_misc_foot_01",
-    "ability_druid_travelform",
-    "ability_druid_aquaticform"
-}
--- Dismount Protection - any buff if its NAME contains these words
-FO_PROTECTED_KEYWORDS = { 
-    "Form",    -- Cat Form, Bear Form, Moonkin Form, etc.
-    "Aura",    -- Devotion Aura, Sanctity Aura, etc.
-    "Stance",  -- Battle Stance, Defensive Stance, etc.
-    "Stealth", -- Stealth, Prowl
-    "Shadowform"
-}
-
-function fo_dismount()
-    for i = 0, 31 do
-        local id = GetPlayerBuff(i, "HELPFUL")
-        -- Stop loop if no more buffs
-        if id == -1 then break end
-        
-        -- 1. Only target buffs with NO time limit
-        if GetPlayerBuffTimeLeft(id) == 0 then
-            local texture = GetPlayerBuffTexture(id)
-            if texture then
-                local texLower = string.lower(texture)
-                
-                -- 2. Check if the texture matches our mount list
-                local isMountCandidate = false
-                for _, pattern in pairs(FO_MOUNT_TEXTURES) do
-                    if string.find(texLower, string.lower(pattern)) then
-                        isMountCandidate = true
-                        break
-                    end
-                end
-
-                if isMountCandidate then
-                    -- 3. Retrieve buff name from tooltip for safety verification
-                    fo_scanner:ClearLines()
-                    fo_scanner:SetPlayerBuff(id)
-                    local buffName = FoAuraScannerTextLeft1:GetText() or ""
-                    local buffNameLower = string.lower(buffName)
-                    
-                    -- 4. Protection Logic
-                    local isProtected = false
-                    
-                    -- EXCEPTION: "Travel Form" and "Aquatic Form" contain the word "form",
-                    -- but we want them to be cancelled like regular mounts.
-                    if buffNameLower ~= "travel form" and buffNameLower ~= "aquatic form" then
-                        -- Check if any protected keywords exist in the buff name
-                        for _, key in pairs(FO_PROTECTED_KEYWORDS) do
-                            if string.find(buffNameLower, string.lower(key)) then 
-                                isProtected = true 
-                                break 
-                            end
-                        end
-                    end
-
-                    -- 5. Execution: Cancel only if it's a mount and NOT a protected form/aura
-                    if not isProtected then
-                        CancelPlayerBuff(id)
-                        return true -- Dismount attempt successful
-                    end
-                end
-            end
-        end
-    end
-    return false -- No mount/removable form found
 end
 
 
@@ -435,35 +331,423 @@ function fo_smartCast(helpSpell, harmSpell, allowHarmMouseover)
     end
 end
 
+
 -- ==========================================================
--- Debug Tool: Show all textures on your current target
+-- Resource CHECKER
 -- ==========================================================
-function fo_showTargetTexture()
-    local unit = "target"
-    if not UnitExists(unit) then 
-        DEFAULT_CHAT_FRAME:AddMessage("No target selected.")
-        return 
+
+--- [Base/Manual] fo_RS(stat, op, val, unit)
+-- @param unit: Optional (Defaults to "target")
+    function fo_RS(statType, operator, threshold, unit)
+    unit = unit or "target"
+    if not UnitExists(unit) then return false end
+
+    local current, max
+    statType = string.lower(statType)
+    
+    -- 1. Get stats with shorthand support
+    -- "l" = Life(HP), "p" = Power(Mana, Rage, Energy)
+    if statType == "l" or statType == "hp" or statType == "health" then
+        current = UnitHealth(unit)
+        max = UnitHealthMax(unit)
+    elseif statType == "p" or statType == "mana" or statType == "rage" or statType == "energy" then
+        current = UnitMana(unit)
+        max = UnitManaMax(unit)
+    else
+        return false
     end
 
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ffff--- Target Buff/Debuff Textures ---|r")
+    -- 2. Threshold Analysis ("50%" vs 500)
+    local targetVal
+    if type(threshold) == "string" and string.find(threshold, "%%$") then
+        local p = tonumber(string.sub(threshold, 1, -2))
+        targetVal = (max * p) / 100
+    else
+        targetVal = tonumber(threshold)
+    end
+
+    if not targetVal or not current then return false end
+
+    -- 3. Logic Comparison
+    if operator == ">" then return current > targetVal
+    elseif operator == "<" then return current < targetVal
+    elseif operator == ">=" then return current >= targetVal
+    elseif operator == "<=" then return current <= targetVal
+    elseif operator == "==" then return current == targetVal
+    end
+    return false
+end
+
+--- [Self] fo_RSSelf(stat, op, val)
+function fo_RSSelf(stat, op, val)
+    return fo_RS(stat, op, val, "player")
+end
+
+--- [Smart] fo_RSSmart(stat, op, val, force)
+function fo_RSSmart(stat, op, val, force)
+    local unit = _GetSmartTarget("RSCheck", force)
+    return fo_RS(stat, op, val, unit)
+end
+
+
+
+
+-- ==========================================================
+-- Coolddown Checker
+-- ==========================================================
+-- Returns true ONLY if the spell is on a real cooldown (longer than the GCD).
+-- Useful for skipping spells that are not ready yet.
+function fo_isCD(spellName)
+    local searchName = string.lower(spellName)
+    local i = 1
     
-    local types = {"HELPFUL", "HARMFUL"}
-    for _, auraType in pairs(types) do
-        DEFAULT_CHAT_FRAME:AddMessage("|cffaaaaaa[" .. auraType .. "]|r")
-        for i = 1, 32 do
-            local texture
-            if auraType == "HELPFUL" then
-                texture = UnitBuff(unit, i)
-            else
-                texture = UnitDebuff(unit, i)
-            end
+    -- Scan the spellbook for the specified spell
+    while true do
+        local name = GetSpellName(i, "spell")
+        if not name then break end -- Exit if we've reached the end of the spellbook
+        
+        -- Case-insensitive match
+        if string.lower(name) == searchName then
+            local _, duration = GetSpellCooldown(i, "spell")
             
-            if not texture then break end
-            DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffffff00[%d]|r %s", i, texture))
+            -- If duration is greater than 1.5 seconds, it's a real cooldown.
+            -- If it's 0 or <= 1.5, it's either ready or just the Global Cooldown.
+            return (duration > 1.5)
+        end
+        i = i + 1
+    end
+    
+    -- Return false if the spell doesn't exist (cannot be on cooldown)
+    return false
+end
+
+
+-- ==========================================================
+-- Equipment Checker
+-- ==========================================================
+-- Internal helper to scan tooltips for specific keywords.
+-- local function fo_scanFor(slotID, keyword)
+--     fo_scanner:ClearLines()
+--     if not fo_scanner:SetInventoryItem("player", slotID) then return false end
+
+--     -- 1.12 tooltips usually have the info in the first 4-5 lines
+--     for i = 1, 5 do
+--         local left = getglobal("FoAuraScannerTextLeft"..i):GetText()
+--         local right = getglobal("FoAuraScannerTextRight"..i):GetText()
+        
+--         -- Convert to lower case for insensitive matching
+--         local lText = string.lower(left or "")
+--         local rText = string.lower(right or "")
+--         local k = string.lower(keyword)
+
+--         -- Match! (Using plain search to avoid hyphen/magic character issues)
+--         if string.find(lText, k, 1, true) or string.find(rText, k, 1, true) then
+--             return true
+--         end
+--     end
+--     return false
+-- end
+
+
+local function fo_scanFor(slotID, keyword)
+-- 0. Absolute Safety: Check if the player is currently in a state 
+    -- where scanning might be dangerous (like during a talent reset).
+    -- In Vanilla, checking if we have a valid unit name can be a quick sanity check.
+    if not UnitName("player") then return false end
+
+    -- 1. Existing link check
+    if not GetInventoryItemLink("player", slotID) then return false end
+
+    -- Safety Check: Ensure the scanner object is initialized.
+    if not fo_scanner or not fo_scanner.SetInventoryItem then
+        return false
+    end
+
+    fo_scanner:ClearLines()
+
+    -- Use pcall (protected call) to prevent crash if memory is unstable.
+    local ok, hasItem = pcall(function() 
+        return fo_scanner:SetInventoryItem("player", slotID) 
+    end)
+
+    if not ok or not hasItem then return false end
+
+    for i = 1, 5 do
+        local leftObj = getglobal("FoAuraScannerTextLeft"..i)
+        if leftObj then
+            local left = leftObj:GetText()
+            local rightObj = getglobal("FoAuraScannerTextRight"..i)
+            local right = (rightObj and rightObj:GetText()) or ""
+            
+            -- Case-insensitive and plain text search for reliability
+            local content = string.lower((left or "")..right)
+            local k = string.lower(keyword)
+
+            if string.find(content, k, 1, true) then 
+                return true 
+            end
+        end
+    end
+    return false
+end
+
+
+
+
+-- Returns true if a Shield is equipped
+function fo_hasShield()
+    return fo_scanFor(17, "Shield")
+end
+
+-- Returns true if a Two-Handed weapon is equipped
+function fo_has2H()
+    -- Check for "Two-Hand" (matches Two-Handed too)
+    return fo_scanFor(16, "Two-Hand")
+end
+
+-- Returns true if Dual-Wielding weapons
+function fo_hasDW()
+    -- 1. Check Main-hand (Slot 16)
+    local mainItem = GetInventoryItemLink("player", 16)
+    if not mainItem then return false end -- Main hand is empty
+    
+    -- 2. Check Off-hand (Slot 17)
+    local offItem = GetInventoryItemLink("player", 17)
+    if not offItem or fo_hasShield() then return false end -- Off-hand is empty or a shield
+
+    -- 3. Verify Off-hand is actually a weapon (Excluding "Held in Off-hand" items)
+    local weaponTypes = {"One-Hand", "Dagger", "Sword", "Axe", "Mace", "Fist"}
+    for _, wType in ipairs(weaponTypes) do
+        if fo_scanFor(17, wType) then
+            return true
+        end
+    end
+    
+    return false
+end
+
+
+-- ==========================================================
+-- Spellbook Checker
+-- ==========================================================
+
+-- Returns true if the spell is found in the player's spellbook.
+-- Useful for talent-based logic or class-specific checks.
+function fo_hasSpell(spellName)
+    local sName = string.lower(spellName)
+    local i = 1
+    while true do
+        local name = GetSpellName(i, "spell")
+        if not name then break end
+        if string.lower(name) == sName then 
+            return true 
+        end
+        i = i + 1
+    end
+    return false
+end
+
+
+-- ==========================================================
+-- Combat Utilities
+-- ==========================================================
+
+-- Returns true if the player is Stealthed or Shadowmelded.
+-- Uses both name and texture checks for maximum reliability in Vanilla 1.12.
+function fo_isStealth()
+    -- Check common stealth/shadowmeld names and textures
+    return fo_auraSelf("Stealth")
+        or fo_auraSelf("Shadowmeld")
+        or fo_auraSelf("Prowl")
+        or fo_auraSelf("Ability_Stealth")
+        or fo_auraSelf("Ability_Ambush")
+end
+
+-- Spamsafe stealth entry with Form-awareness for Druids.
+function fo_startStealth()
+    if fo_isStealth() then return end
+
+    -- 1. Druid Check: If in Cat Form, ONLY try Prowl.
+    if fo_isCat and fo_isCat() then
+        if fo_hasSpell("Prowl") then
+            CastSpellByName("Prowl")
+            return
+        end
+        -- Note: If we are a Cat but don't have Prowl yet, 
+        -- we still shouldn't use Shadowmeld here (usually).
+    
+    -- 2. Non-Cat states (Humanoid, etc.)
+    else
+        -- Prioritize Rogue Stealth first
+        if fo_hasSpell("Stealth") then
+            CastSpellByName("Stealth")
+            return
+        end
+        
+        -- Finally, use Shadowmeld if available
+        if fo_hasSpell("Shadowmeld") then
+            CastSpellByName("Shadowmeld")
+            return
         end
     end
 end
 
+
+-- Checks if the player is currently auto-attacking.
+function fo_isAttacking()
+    for i = 1, 120 do
+        if IsAttackAction(i) and IsCurrentAction(i) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Starts auto-attack without toggling off.
+-- Does not break Stealth/Shadowmeld unless 'force' is provided.
+function fo_startAttack(force)
+    -- Logic: Attack only if not stealthed, OR if force is requested.
+    if not fo_isStealth() or force then
+        if not fo_isAttacking() then
+            AttackTarget()
+        end
+    end
+end
+
+-- Helper: Checks if any "Auto Repeat" action (like Shoot or Auto Shot) is currently active.
+function fo_isShooting()
+    for i = 1, 120 do
+        if IsAutoRepeatAction(i) and IsCurrentAction(i) then
+            return true
+        end
+    end
+    return false
+end
+
+
+function fo_startShoot()
+    if fo_isShooting() then return end
+
+    fo_scanner:ClearLines()
+    if not fo_scanner:SetInventoryItem("player", 18) then return end
+
+    local spell = nil
+    for i = 1, 5 do
+        local left = getglobal("FoAuraScannerTextLeft"..i):GetText()
+        local right = getglobal("FoAuraScannerTextRight"..i):GetText()
+        local content = (left or "")..(right or "")
+        
+        if string.find(content, "Wand") then spell = "Shoot"; break
+        elseif string.find(content, "Crossbow") then spell = "Shoot Crossbow"; break
+        elseif string.find(content, "Bow") then spell = "Shoot Bow"; break
+        elseif string.find(content, "Gun") then spell = "Shoot Gun"; break
+        end
+    end
+
+    if spell then CastSpellByName(spell) end
+end
+
+
+-- Stops all current actions: Spell casting, Channeling, Auto-Attack, and Shooting.
+function fo_stopAll()
+    -- 1. Stop Spell Casting & Channeling
+    SpellStopCasting()
+    
+    -- 2. Stop Auto-Attack (if active)
+    if fo_isAttacking() then
+        AttackTarget()
+    end
+    
+    -- 3. Stop Auto-Shot / Wand Shooting
+    -- In 1.12, 'Shoot' and 'Auto Shot' are toggles. 
+    -- We check the action bar to see if they are active before toggling them off.
+    if fo_isShooting() then
+        -- This logic assumes 'Shoot' or 'Auto Shot' is on your action bar.
+        -- If it's a wand, SpellStopCasting often handles it, but this is safer:
+        SpellStopCasting() 
+    end
+end
+
+
+
+
+
+
+-- ==========================================================
+-- Dismount Logic 
+-- ==========================================================
+-- List of specific mount textures found on this server
+FO_MOUNT_TEXTURES = { 
+    "inv_pet_speedy", 
+    "ability_mount_",
+    "spell_nature_swiftness",
+    "inv_misc_foot_01",
+    "ability_druid_travelform",
+    "ability_druid_aquaticform"
+}
+-- Dismount Protection - any buff if its NAME contains these words
+FO_PROTECTED_KEYWORDS = { 
+    "Form",    -- Cat Form, Bear Form, Moonkin Form, etc.
+    "Aura",    -- Devotion Aura, Sanctity Aura, etc.
+    "Stance",  -- Battle Stance, Defensive Stance, etc.
+    "Stealth", -- Stealth, Prowl
+    "Shadowform"
+}
+
+function fo_dismount()
+    for i = 0, 31 do
+        local id = GetPlayerBuff(i, "HELPFUL")
+        -- Stop loop if no more buffs
+        if id == -1 then break end
+        
+        -- 1. Only target buffs with NO time limit
+        if GetPlayerBuffTimeLeft(id) == 0 then
+            local texture = GetPlayerBuffTexture(id)
+            if texture then
+                local texLower = string.lower(texture)
+                
+                -- 2. Check if the texture matches our mount list
+                local isMountCandidate = false
+                for _, pattern in pairs(FO_MOUNT_TEXTURES) do
+                    if string.find(texLower, string.lower(pattern)) then
+                        isMountCandidate = true
+                        break
+                    end
+                end
+
+                if isMountCandidate then
+                    -- 3. Retrieve buff name from tooltip for safety verification
+                    fo_scanner:ClearLines()
+                    fo_scanner:SetPlayerBuff(id)
+                    local buffName = FoAuraScannerTextLeft1:GetText() or ""
+                    local buffNameLower = string.lower(buffName)
+                    
+                    -- 4. Protection Logic
+                    local isProtected = false
+                    
+                    -- EXCEPTION: "Travel Form" and "Aquatic Form" contain the word "form",
+                    -- but we want them to be cancelled like regular mounts.
+                    if buffNameLower ~= "travel form" and buffNameLower ~= "aquatic form" then
+                        -- Check if any protected keywords exist in the buff name
+                        for _, key in pairs(FO_PROTECTED_KEYWORDS) do
+                            if string.find(buffNameLower, string.lower(key)) then 
+                                isProtected = true 
+                                break 
+                            end
+                        end
+                    end
+
+                    -- 5. Execution: Cancel only if it's a mount and NOT a protected form/aura
+                    if not isProtected then
+                        CancelPlayerBuff(id)
+                        return true -- Dismount attempt successful
+                    end
+                end
+            end
+        end
+    end
+    return false -- No mount/removable form found
+end
 
 
 -- ==========================================================
