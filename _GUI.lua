@@ -259,7 +259,7 @@ AddApiAuto(GlobalPanel, "GLOBAL", "fo_has2H()", "Returns true if 2H equipped")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasDW()", "Returns true if Dual-Wielding")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasSpell('swiftmend')", "True if the spell is in your spellbook")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_isStealth()", "Returns true if Stealthed(any kind))")
-AddApiAuto(GlobalPanel, "GLOBAL", "GitHub URL", "https://github.com/41-0/41sFunctions)")
+AddApiAuto(GlobalPanel, "GLOBAL", "https://github.com/41-0/41sFunctions", "GitHub URL")
 
 
 
