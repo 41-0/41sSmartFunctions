@@ -11,7 +11,7 @@
 1. [Quick Start Examples](#quick-start-examples)
 2. [Targeting Priority](#targeting-priority)
 3. [Combat Utilities](#combat)
-4. [Druid Specific Features](#druid-specific)
+4. [Druid Specific Features](#druid-specific-features)
 
 - [Form-Specific Wrappers](#form-specific-wrappers)
 - [Shapeshifting](#shapeshifting)
