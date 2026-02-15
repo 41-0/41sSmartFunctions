@@ -1,6 +1,7 @@
 ## Interface: 11200
 ## Title: 41sFunctions
 
+data.lua
 core.lua
 Druid.lua
 _GUI.lua

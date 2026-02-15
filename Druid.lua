@@ -203,11 +203,17 @@ function fo_caster(helpSpell, harmSpell, forceMouseover)
 end
 
 -- ==========================================================
+-- DRUID Status
+-- ==========================================================
+function fo_isFrenziedRegen()
+    return fo_auraSelf('Frenzied Regeneration') and fo_auraSelf('Ability_BullRush')
+    -- return true
+end
+
+
+-- ==========================================================
 -- DRUID LOGIC - Form Lock & Permission Engine
 -- ==========================================================
-
--- Ensure the global table exists (prevents "nil" error)
-fo_ClassHandlers = fo_ClassHandlers or {}
 
 -- [A] BIT FLAGS for Permission Management
 local F_HUMAN   = 1
@@ -215,15 +221,15 @@ local F_TREE    = 2
 local F_MOONKIN = 4
 
 -- 1. CASTER SPELL PERMISSIONS
-local _spellPermissions = {
+fo_spellPermissions = {
     -- ***WRITE IN LOWER CASE***
     -- Shared by ALL Caster Forms (Human, Tree, Moonkin)
-    ["barkskin"]            = 7, -- F_HUMAN + F_TREE + F_MOONKIN
+    ["barkskin"]            = 7, -- f_human + f_tree + f_moonkin
     ["faerie fire"]         = 7,
     ["entangling roots"]    = 7,
     ["hibernate"]           = 7,
     ["innervate"]           = 7,
-    ["mark of the Wild"]    = 7,
+    ["mark of the wild"]    = 7,
     ["nature's grasp"]      = 7,
     ["remove curse"]        = 7,
     ["soothe animal"]       = 7,
@@ -231,7 +237,7 @@ local _spellPermissions = {
     ["teleport: moonglade"] = 7,
 
     -- Restoration Special (Human and Tree ONLY)
-    ["abolish poison"]      = 3, -- F_HUMAN + F_TREE
+    ["abolish poison"]      = 3, -- f_human + f_tree
     ["cure poison"]         = 3,
     ["nature's swiftness"]  = 3,
     ["regrowth"]            = 3,
@@ -240,7 +246,7 @@ local _spellPermissions = {
     ["tranquility"]         = 3,
 
     -- Balance Special (Human and Moonkin ONLY)
-    ["wrath"]               = 5, -- F_HUMAN + F_MOONKIN
+    ["wrath"]               = 5, -- f_human + f_moonkin
     ["starfire"]            = 5,
     ["moonfire"]            = 5,
     ["insect swarm"]        = 5,
@@ -251,7 +257,7 @@ local _spellPermissions = {
 }
 
 -- 2. FERAL REQUIREMENTS (Bear, Cat, or Both)
-local _formRequirements = {
+fo_formRequirements = {
     ["bash"] = {"bear form"}, ["challenging roar"] = {"bear form"}, 
     ["demoralizing roar"] = {"bear form"}, ["enrage"] = {"bear form"}, 
     ["feral charge"] = {"bear form"}, ["frenzied regeneration"] = {"bear form"}, 
@@ -267,15 +273,36 @@ local _formRequirements = {
     ["faerie fire (feral)"] = {"bear form", "cat form"},
 }
 
--- 3. THE CLASS HANDLER
-fo_ClassHandlers["DRUID"] = function(spellName)
-    -- [STEP 0] Normalize Input for Table Lookup
-    -- Convert "enrage" to "Enrage", "regrowth" to "Regrowth"
-    -- This ensures compatibility with _formRequirements and _spellPermissions keys.
-    local normalizedName = string.upper(string.sub(spellName, 1, 1)) .. string.lower(string.sub(spellName, 2))
-    local currentForm = _GetShapeshiftForm()
+-- [[ Druid Specific Filter Logic ]]
+-- This function handles all Druid-specific constraints including:
+-- 1. Frenzied Regeneration Rage Management (High Priority)
+-- 2. Auto-Shapeshifting based on spell requirements
+-- 3. Form-based permissions using bitwise flags
+local lastFRMessageTime = 0
+local function druidFilter(spellName)
+    -- Normalize input to lowercase for consistent table lookup
+    local name = string.lower(spellName or "")
+    if name == "" then return true end
 
-    -- [STEP 1] Determine the Lock Status
+
+
+    -- [PRE-STEP] Frenzied Regeneration Safety Check
+    -- Prevents spending Rage on non-essential spells during FR healing
+    if fo_isFrenziedRegen() then
+        if fo_Settings.rageSpells and fo_Settings.rageSpells[name] then
+            if fo_RSSelf('p', "<", fo_Settings.frenziedRegenThreshold) then
+                local now = GetTime()
+                if (now - lastFRMessageTime) > 3 then
+                    UIErrorsFrame:AddMessage("Blocking " .. name .. " for Frenzied Regen", 1.0, 0.5, 0.0)
+                    lastFRMessageTime = now
+                end           
+                return false
+            end
+        end
+    end
+
+    -- [STEP 1] Determine Form Lock Status
+    -- Check if the user has locked their current form via settings
     local isFormLocked = false
     if fo_isBear() then isFormLocked = fo_Settings.lockBearForm
     elseif fo_isCat() then isFormLocked = fo_Settings.lockCatForm
@@ -283,72 +310,78 @@ fo_ClassHandlers["DRUID"] = function(spellName)
     elseif fo_isTree() then isFormLocked = fo_Settings.lockTreeForm
     end
 
-    -- [STEP 2] Check Feral Requirements
-    -- Use normalizedName to find the correct entry in our data tables
-    local reqForms = _formRequirements[normalizedName]
+    -- [STEP 2] Check Feral Requirements (Auto-Shapeshift)
+    -- Consult fo_formRequirements table (keys must be lowercase)
+    local reqForms = fo_formRequirements[name]
     if reqForms then
-        -- Check if current form is in the allowed list
         local isCorrectForm = false
         for _, fName in ipairs(reqForms) do
-            -- Compatibility with GetBestBearForm via alias checks
-            if (fName == "Bear Form" and fo_isBear()) or
-               (fName == "Cat Form" and fo_isCat()) then
+            -- fName in table should be lowercase (e.g., "bear form")
+            if (fName == "bear form" and fo_isBear()) or
+               (fName == "cat form" and fo_isCat()) then
                 isCorrectForm = true
                 break
             end
         end
 
+        -- If already in required form, allow spell to proceed
         if isCorrectForm then return true end
 
-        -- Auto-Shapeshift logic
+        -- Handle Automatic Shifting if form is not locked
         if fo_Settings.autoShapeshift and not isFormLocked then
-            if reqForms[2] then -- Shared spells (e.g., Berserk/Dash-equivalents)
+            if reqForms[2] then -- Spell usable in both Bear and Cat
                 if fo_Settings.prioritizeBear then
-                    fo_castBearForm() -- Automatically determines best Bear/Dire Bear
+                    fo_castBearForm() 
                 else
                     fo_castCatForm()
                 end
             else
-                -- Single form requirements
+                -- Shift to the specific single required form
                 local target = string.lower(reqForms[1])
-                if target == "bear form" then
-                    fo_castBearForm()
-                elseif target == "cat form" then
-                    fo_castCatForm()
-                elseif target == "travel form" then
-                    fo_castTravelForm()
-                elseif target == "moonkin form" then
-                    fo_castMoonkinForm()
-                elseif target == "tree of life form" then
-                    fo_castTreeForm()
+                if target == "bear form" then fo_castBearForm()
+                elseif target == "cat form" then fo_castCatForm()
+                elseif target == "travel form" then fo_castTravelForm()
+                elseif target == "moonkin form" then fo_castMoonkinForm()
+                elseif target == "tree of life form" then fo_castTreeForm()
                 end
             end
         end
-        return false -- Stop execution while shifting
+        -- Block original spell while shifting is in progress
+        return false 
     end
 
-    -- [STEP 3] Check Caster Permissions (Bit Flags)
-    local allowedMask = _spellPermissions[normalizedName]
+    -- [STEP 3] Check Caster Permissions (Bitwise Validation)
+    -- Handles spells castable in multiple forms or requiring Caster Form
+    local allowedMask = fo_spellPermissions[name]
     if allowedMask then
+        -- Define current form flag
         local currentFlag = 0
-        if fo_isCaster() then currentFlag = F_HUMAN
-        elseif fo_isTree() then currentFlag = F_TREE
-        elseif fo_isMoonkin() then currentFlag = F_MOONKIN
+        if fo_isCaster() then currentFlag = 1      -- F_HUMAN
+        elseif fo_isTree() then currentFlag = 2    -- F_TREE
+        elseif fo_isMoonkin() then currentFlag = 4 -- F_MOONKIN
         elseif fo_isBear() then currentFlag = 8
         elseif fo_isCat() then currentFlag = 16
-        else currentFlag = 32 -- Travel, Aqua, etc.
+        else currentFlag = 32 -- Travel, Aquatic, etc.
         end
 
-        -- Bitwise permission check
+        -- Bitwise check: (allowedMask / currentFlag) % 2 == 1
         local isAllowed = (math.mod(math.floor(allowedMask / currentFlag), 2) == 1)
         if isAllowed then return true end
 
-        -- If not allowed, attempt to cancel current form
+        -- If not allowed in current form, auto-cancel form if permitted
         if not isFormLocked and fo_Settings.autoCancelForm then
             fo_cancelForm()
         end
+        -- Block execution until form is cancelled
         return false
     end
 
-    return true -- Pass through spells not found in the requirement/permission lists
+    -- Default: allow the spell if it is not found in restricted tables
+    return true 
+end
+
+-- [[ Filter Registration ]]
+local _, class = UnitClass("player")
+if class == "DRUID" then
+    fo_registerFilter(druidFilter)
 end

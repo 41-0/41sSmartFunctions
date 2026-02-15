@@ -226,7 +226,6 @@ AddApiAuto(GlobalPanel, "GLOBAL", "fo_auraSelf('Rejuvenation')", "Aura Checker (
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_auraSmart('starfall', 1)", "Aura Checker (Smart Target)")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_aura('Faerie Fire', 'targettarget')", "Aura Checker (Manual Target)")
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_showTargetTexture()", "Show all textures on current target")
-AddApiAuto(GlobalPanel, "GLOBAL", "But Texture names are not", "Buff names are CASE SENSITIVE")
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_dismount()", "Dismount (***May not work***)")
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_startAttack()", "Spammable auto attack")
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_startShoot()", "Shoots ALL ranged weapon")
@@ -296,6 +295,21 @@ Dru_PrioritizeBear_CB:SetScript("OnEnter", function()
     GameTooltip:Show()
 end)
 Dru_PrioritizeBear_CB:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+end)
+
+-- Checkbox: Save Rage during Frenzied Regeneration 
+local Dru_SaveRageWhenFR_CB = CreateFrame("CheckButton", "fo_CB_Druid_SaveRageWhenFR", DruidPanel, "UICheckButtonTemplate")
+Dru_SaveRageWhenFR_CB:SetPoint("TOPLEFT", DruidPanel, "TOPLEFT", 20, -145)
+_G[Dru_SaveRageWhenFR_CB:GetName().."Text"]:SetText("Save rage when FrenziedRegen")
+Dru_SaveRageWhenFR_CB:SetChecked(fo_Settings.preventRageWasteDuringFR)
+Dru_SaveRageWhenFR_CB:SetScript("OnClick", function() fo_Settings.preventRageWasteDuringFR = this:GetChecked() and true or false end)
+Dru_SaveRageWhenFR_CB:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+    GameTooltip:SetText("Prevent using Maul and Swipe during Frenzied Regeneration.")
+    GameTooltip:Show()
+end)
+Dru_SaveRageWhenFR_CB:SetScript("OnLeave", function()
     GameTooltip:Hide()
 end)
 
@@ -373,7 +387,8 @@ AddApiAuto(DruidPanel, "DRUID", "/script fo_castAquaForm()", "Spammable Aquatic 
 AddApiAuto(DruidPanel, "DRUID", "/script fo_castTravelForm()", "Spammable Travel Form")
 AddApiAuto(DruidPanel, "DRUID", "/script fo_castMoonkinForm()", "Spammable Moonkin Form")
 AddApiAuto(DruidPanel, "DRUID", "/script fo_castTreeForm()", "Spammable Tree Form")
-AddApiAuto(DruidPanel, "DRUID", "fo_isBear() fo_isCat() fo_isTravel() fo_isAqua() fo_isMoonkin() fo_isTree() fo_isCaster()", "Returns true if in respective form.")
+AddApiAuto(DruidPanel, "DRUID", "fo_isBear() fo_isCat() fo_isTravel() fo_isAqua() fo_isMoonkin() fo_isTree() fo_isCaster()", "Returns true if in respective form")
+AddApiAuto(DruidPanel, "DRUID", "fo_isFrenziedRegen()", "True during Frenzied Regeneration")
 
 
 
@@ -408,6 +423,10 @@ loader:SetScript("OnEvent", function()
 
     if Dru_PrioritizeBear_CB then
         Dru_PrioritizeBear_CB:SetChecked(fo_Settings.prioritizeBear)
+    end
+
+    if Dru_SaveRageWhenFR_CB then
+        Dru_SaveRageWhenFR_CB:SetChecked(fo_Settings.preventRageWasteDuringFR)
     end
 
     if Dru_BearLock_CB then

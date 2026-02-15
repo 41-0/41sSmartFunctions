@@ -233,7 +233,7 @@ The Aura Checker system allows your macros to detect existing buffs or debuffs o
 #### Arguments:
 
 - **`spellName`**: The name of the buff/debuff or its **Texture Path**.
-- **Name Match**: Use the standard display name (e.g., `"Moonfire"`). **Case-sensitive.**
+- **Name Match**: Use the standard display name (e.g., `"Moonfire"`).
 - **Texture Match**: Use the internal texture name (e.g., `"Spell_Nature_Rejuvenation"`).
 - **🔍 How to find textures**: Use `/script fo_showTargetTexture()` to print active texture names to chat.
 

@@ -1,5 +1,5 @@
 -- ==========================================================
--- AURA SCANNER INITIALIZATION
+-- SCANNER INITIALIZATION
 -- ==========================================================
 -- Create a hidden tooltip for scanning buff names
 if not fo_scanner then
@@ -14,14 +14,14 @@ FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal", "Shapeshift" }
 -- SETTINGS INITIALIZATION
 -- ==========================================================
 fo_Settings = fo_Settings or {}
-fo_ClassHandlers = fo_ClassHandlers or {}
 -- This function ensures all settings have a default value
 -- without overwriting existing user configurations.
+
 local function InitializeSettings()
     -- 1. General Settings
     if fo_Settings.selfCastEnabled == nil then fo_Settings.selfCastEnabled = true end
 
-    -- Druid Settings
+    -- Druid Settings (Existing)
     if fo_Settings.autoCancelForm == nil then fo_Settings.autoCancelForm = true end
     if fo_Settings.autoShapeshift == nil then fo_Settings.autoShapeshift = true end
     if fo_Settings.lockHumanForm == nil then fo_Settings.lockHumanForm = false end
@@ -30,61 +30,62 @@ local function InitializeSettings()
     if fo_Settings.lockMoonkinForm == nil then fo_Settings.lockMoonkinForm = true end
     if fo_Settings.lockTreeForm == nil then fo_Settings.lockTreeForm = true end
     if fo_Settings.prioritizeBear == nil then fo_Settings.prioritizeBear = true end
-end
 
+    -- [[ NEW: Frenzied Regeneration Management ]] --
+    if fo_Settings.preventRageWasteDuringFR == nil then 
+        fo_Settings.preventRageWasteDuringFR = true 
+    end
+    if fo_Settings.frenziedRegenThreshold == nil then 
+        fo_Settings.frenziedRegenThreshold = 80 
+    end
+
+    -- [[ NEW: Rage Spells Table ]] --
+    -- This table must exist for the filter to look up spell names
+    if fo_Settings.rageSpells == nil then
+        fo_Settings.rageSpells = {
+            ["maul"] = true,
+            ["swipe"] = true,
+        }
+    end
+end
 
 --- Core logic for aura scanning using texture paths and tooltip text.
 -- @param spellName: The pure name of the spell or a texture path segment.
 -- @param unit: A valid WoW UnitID (e.g., "player", "target").
 local function _CheckAuraByName(spellName, unit)
-    -- Safety check for unit existence
     if not unit or not UnitExists(unit) then return false end
     
+    -- Search name is pre-lowered for consistency
+    local searchName = strlower(spellName)
     local types = {"HELPFUL", "HARMFUL"}
     
     for _, auraType in pairs(types) do
         local i = 1
         while true do
-            local texture
-            if auraType == "HELPFUL" then
-                texture = UnitBuff(unit, i)
-            else
-                texture = UnitDebuff(unit, i)
-            end
-            
-            -- If no more auras, break the while loop
+            local texture = (auraType == "HELPFUL") and UnitBuff(unit, i) or UnitDebuff(unit, i)
             if not texture then break end
 
-            -- 1. Check by Texture Path (Fastest)
-            -- Use plain search (true) to avoid magic character issues in paths
-            if string.find(texture, spellName, 1, true) then
+            -- 1. Check by Texture Path (Normalize to lowercase)
+            if string.find(strlower(texture), searchName, 1, true) then
                 return true
             end
 
-            -- 2. Check by Tooltip Text (Fallback for specific names/ranks)
-            -- Re-setting owner inside the loop is the most stable way in Vanilla
+            -- 2. Check by Tooltip Text (Normalize to lowercase)
             fo_scanner:SetOwner(WorldFrame, "ANCHOR_NONE")
             fo_scanner:ClearLines()
-            
-            if auraType == "HELPFUL" then
-                fo_scanner:SetUnitBuff(unit, i)
-            else
-                fo_scanner:SetUnitDebuff(unit, i)
-            end
+            if auraType == "HELPFUL" then fo_scanner:SetUnitBuff(unit, i) else fo_scanner:SetUnitDebuff(unit, i) end
             
             local tooltipText = FoAuraScannerTextLeft1:GetText()
-            if tooltipText and tooltipText == spellName then
+            if tooltipText and strlower(tooltipText) == searchName then
                 return true
             end
 
             i = i + 1
-            if i > 32 then break end -- Safety cap for Vanilla buff limits
+            if i > 32 then break end
         end
     end
-    
     return false
 end
-
 
 --- Determines the best unit ID based on mouseover priority and spell type.
 -- @param spellName: Used to determine if the spell is helpful or harmful (future proofing).
@@ -228,14 +229,10 @@ end
 -- Smart cast spell with mouseover override
 -- ==========================================================
 
--- Global settings (Can be toggled via command)
--- selfCastEnabled = true 
-
---- Toggles the self-cast behavior when no target is selected.
-function fo_toggleSelf()
-    fo_Settings.selfCastEnabled = not fo_Settings.selfCastEnabled
-    local status = fo_Settings.selfCastEnabled and "|cff00ff00ENABLED|r" or "|cffff0000DISABLED|r"
-    DEFAULT_CHAT_FRAME:AddMessage("41s_Utility: Self-Cast is now " .. status)
+-- Interceptor
+fo_castFilters = {}
+function fo_registerFilter(func)
+    table.insert(fo_castFilters, func)
 end
 
 --- Determines the final target unit based on existence and self-cast settings.
@@ -267,14 +264,12 @@ end
 function fo_cast(spellName, forceMouseover)
     if not spellName or spellName == "" then return end
     local lowerName = string.lower(spellName)
-    -- [1] CLASS SPECIFIC LOGIC
-    -- Check for form locks, permissions, and auto-shapeshift/cancel.
-    local _, class = UnitClass("player")
-    if fo_ClassHandlers[class] then
-        -- If the handler returns false, it means we are shifting, 
-        -- canceling form, or the action is locked. Stop execution.
-        if not fo_ClassHandlers[class](lowerName) then
-            return 
+   
+    -- 1. Run all registered filters
+    -- If any filter returns false, the execution stops immediately
+    for _, filterFunc in ipairs(fo_castFilters) do
+        if filterFunc(lowerName) == false then
+            return -- Blocked by a filter
         end
     end
 
@@ -425,30 +420,8 @@ end
 -- ==========================================================
 -- Equipment Checker
 -- ==========================================================
+
 -- Internal helper to scan tooltips for specific keywords.
--- local function fo_scanFor(slotID, keyword)
---     fo_scanner:ClearLines()
---     if not fo_scanner:SetInventoryItem("player", slotID) then return false end
-
---     -- 1.12 tooltips usually have the info in the first 4-5 lines
---     for i = 1, 5 do
---         local left = getglobal("FoAuraScannerTextLeft"..i):GetText()
---         local right = getglobal("FoAuraScannerTextRight"..i):GetText()
-        
---         -- Convert to lower case for insensitive matching
---         local lText = string.lower(left or "")
---         local rText = string.lower(right or "")
---         local k = string.lower(keyword)
-
---         -- Match! (Using plain search to avoid hyphen/magic character issues)
---         if string.find(lText, k, 1, true) or string.find(rText, k, 1, true) then
---             return true
---         end
---     end
---     return false
--- end
-
-
 local function fo_scanFor(slotID, keyword)
 -- 0. Absolute Safety: Check if the player is currently in a state 
     -- where scanning might be dangerous (like during a talent reset).
@@ -528,7 +501,7 @@ end
 
 
 -- ==========================================================
--- Spellbook Checker
+-- Spell Checker
 -- ==========================================================
 
 -- Returns true if the spell is found in the player's spellbook.
@@ -754,13 +727,31 @@ end
 -- EVENT HANDLER FOR DATA LOADING
 -- ==========================================================
 
--- We must wait for 'VARIABLES_LOADED' to ensure that 
--- SavedVariables are fully loaded from the server/disk 
--- before we check or apply default values.
 local f = CreateFrame("Frame")
 f:RegisterEvent("VARIABLES_LOADED")
 f:SetScript("OnEvent", function()
-    InitializeSettings()
-    -- Optional: Print a message to the console for debugging
-    -- DEFAULT_CHAT_FRAME:AddMessage("Gemini Cast: Settings Loaded.")
+    -- 1. Ensure the saved variable table exists
+    fo_Settings = fo_Settings or {}
+
+    -- 2. Automatically merge all defaults from fo_DefaultSettings
+    -- This replaces the need for manual InitializeSettings()
+    if fo_DefaultSettings then
+        for key, value in pairs(fo_DefaultSettings) do
+            -- If the setting is a table (like rageSpells), handle it as a sub-merge
+            if type(value) == "table" then
+                fo_Settings[key] = fo_Settings[key] or {}
+                for subKey, subValue in pairs(value) do
+                    if fo_Settings[key][subKey] == nil then
+                        fo_Settings[key][subKey] = subValue
+                    end
+                end
+            -- If it's a simple value (boolean, number, string)
+            elseif fo_Settings[key] == nil then
+                fo_Settings[key] = value
+            end
+        end
+    end
+
+    -- Optional: Debug message
+    -- DEFAULT_CHAT_FRAME:AddMessage("FO Library: Settings fully merged from Defaults.")
 end)
