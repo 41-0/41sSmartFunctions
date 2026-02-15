@@ -182,7 +182,7 @@ function fo_cat(spellName, forceMouseover)
 end
 
 -- Execute only in Moonkin Form
-function fo_moon(helpSpell, harmSpell, forceMouseover)
+function fo_moonkin(helpSpell, harmSpell, forceMouseover)
     if fo_isMoonkin() then
         fo_smartCast(helpSpell, harmSpell, forceMouseover)
     end

@@ -138,7 +138,7 @@ Optimized for one-line macros. Each checks for its specific form before attempti
 
 - `fo_bear(spellName, forceMouseover)`
 - `fo_cat(spellName, forceMouseover)`
-- `fo_moon(helpSpell, harmSpell, forceMouseover)`
+- `fo_moonkin(helpSpell, harmSpell, forceMouseover)`
 - `fo_tree(helpSpell, harmSpell, forceMouseover)`
 - `fo_caster(helpSpell, harmSpell, forceMouseover)`
 
@@ -161,7 +161,7 @@ Spam-safe shapeshifting. Unlike standard buttons, these will NOT cancel the form
 
 - `fo_castBearForm()`
 - `fo_castCatForm()`
-- `fo_castAquaticForm()`
+- `fo_castAquaForm()`
 - `fo_castTravelForm()`
 - `fo_castMoonkinForm()`
 - `fo_castTreeForm()`
