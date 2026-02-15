@@ -199,7 +199,7 @@ local GlobalPanel = CreateClassPanel("GLOBAL")
 CreateTabButton(1, "Global", "GLOBAL", 15)
 
 -- Tab Description
-AddPanelDescription(GlobalPanel, "General settings and utility snippets for all classes.\nThese settings only apply to scripts this addon provides (e.g., fo_cast).")
+AddPanelDescription(GlobalPanel, "General settings and utility snippets for all classes.\nThese settings only apply to scripts this addon provides (Taunt alerts excluded).")
 
 
 -- Checkbox: Self Cast
@@ -216,6 +216,28 @@ end)
 G_SelfCast_CB:SetScript("OnLeave", function()
     GameTooltip:Hide()
 end)
+
+
+-- Checkbox: Self Cast
+local G_TauntResistAnnounce_CB = CreateFrame("CheckButton", "fo_CB_TauntResistAnnounce", GlobalPanel, "UICheckButtonTemplate")
+G_TauntResistAnnounce_CB:SetPoint("TOPLEFT", GlobalPanel, "TOPLEFT", 20, -95)
+_G[G_TauntResistAnnounce_CB:GetName().."Text"]:SetText("Announce Taunt Resists")
+G_TauntResistAnnounce_CB:SetChecked(fo_Settings.announceTauntResist)
+G_TauntResistAnnounce_CB:SetScript("OnClick", function() fo_Settings.announceTauntResist = this:GetChecked() and true or false end)
+G_TauntResistAnnounce_CB:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+    GameTooltip:SetText("Announce if Taunt spells are resisted.")
+    GameTooltip:Show()
+end)
+G_TauntResistAnnounce_CB:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+end)
+
+
+
+
+
+
 
 -- Automated List (Starts from Y = -110)
 AddSnippetGuide(GlobalPanel, "--- Copy from here and paste into your macro (change arguments) ---")
@@ -244,10 +266,99 @@ AddApiAuto(GlobalPanel, "GLOBAL", "fo_isStealth()", "Returns true if Stealthed(a
 
 
 
+-- -- --- Announcer Tab ---
+-- local AnnouncePanel = CreateClassPanel("ANNOUNCE")
+-- CreateTabButton(2, "Announce", "ANNOUNCE", 75) -- Positioned next to Druid Tab
+
+-- -- Tab Description
+-- AddPanelDescription(AnnouncePanel, "Settings for Spell Announcer.\nCast registration: Announces both success and failure.\nFail registration: Announces ONLY full resists/misses.")
+
+-- -- 1. Master Toggles (Top Section)
+-- local Ann_DoCasts_CB = CreateFrame("CheckButton", "fo_CB_Ann_DoCasts", AnnouncePanel, "UICheckButtonTemplate")
+-- Ann_DoCasts_CB:SetPoint("TOPLEFT", AnnouncePanel, "TOPLEFT", 20, -75)
+-- _G[Ann_DoCasts_CB:GetName().."Text"]:SetText("Enable Cast Announcements")
+-- Ann_DoCasts_CB:SetChecked(fo_Settings.announcerDoCasts)
+-- Ann_DoCasts_CB:SetScript("OnClick", function() fo_Settings.announcerDoCasts = this:GetChecked() and true or false end)
+
+-- local Ann_DoFails_CB = CreateFrame("CheckButton", "fo_CB_Ann_DoFails", AnnouncePanel, "UICheckButtonTemplate")
+-- Ann_DoFails_CB:SetPoint("TOPLEFT", AnnouncePanel, "TOPLEFT", 220, -75)
+-- _G[Ann_DoFails_CB:GetName().."Text"]:SetText("Enable Failure Announcements")
+-- Ann_DoFails_CB:SetChecked(fo_Settings.announcerDoFails)
+-- Ann_DoFails_CB:SetScript("OnClick", function() fo_Settings.announcerDoFails = this:GetChecked() and true or false end)
+
+-- -- 2. Input Section
+-- local inputLabel = AnnouncePanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+-- inputLabel:SetPoint("TOPLEFT", AnnouncePanel, "TOPLEFT", 25, -110)
+-- inputLabel:SetText("Register New Spell (e.g., Taunt):")
+
+-- -- Using your background style for the EditBox
+-- local inputBg = CreateFrame("Frame", "fo_Ann_InputBg", AnnouncePanel)
+-- inputBg:SetWidth(180); inputBg:SetHeight(24)
+-- inputBg:SetPoint("TOPLEFT", AnnouncePanel, "TOPLEFT", 25, -130)
+-- inputBg:SetBackdrop({bgFile = "Interface\\Buttons\\White8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+--                     tile = true, tileSize = 16, edgeSize = 12, insets = {left=3, right=3, top=3, bottom=3}})
+-- inputBg:SetBackdropColor(0, 0, 0, 0.5)
+
+-- local spellInput = CreateFrame("EditBox", "fo_Ann_SpellInput", inputBg)
+-- spellInput:SetWidth(170); spellInput:SetHeight(20); spellInput:SetPoint("CENTER", inputBg, "CENTER", 0, 0)
+-- spellInput:SetFontObject("GameFontHighlightSmall")
+-- spellInput:SetAutoFocus(false)
+-- spellInput:SetScript("OnEscapePressed", function() this:ClearFocus() end)
+
+-- -- Function to Add Spells (Logic)
+-- local function RegisterSpell(listType)
+--     local spell = string.lower(spellInput:GetText())
+--     if spell ~= "" then
+--         if listType == "cast" then
+--             fo_Settings.announcerDict.casts[spell] = true
+--             DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Announcer]|r Added '"..spell.."' to Cast list.")
+--         else
+--             fo_Settings.announcerDict.fails[spell] = true
+--             DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Announcer]|r Added '"..spell.."' to Fail list.")
+--         end
+--         spellInput:SetText("")
+--         spellInput:ClearFocus()
+--         -- Note: List refreshing logic would go here
+--     end
+-- end
+
+-- -- Button: Add to Casts
+-- local addCastBtn = CreateFrame("Button", nil, AnnouncePanel, "UIPanelButtonTemplate")
+-- addCastBtn:SetWidth(100); addCastBtn:SetHeight(24)
+-- addCastBtn:SetPoint("LEFT", inputBg, "RIGHT", 10, 0)
+-- addCastBtn:SetText("Add Cast")
+-- -- addCastBtn:SetScript("OnClick", function() RegisterSpell("cast") end)
+-- addCastBtn:SetScript("OnClick", function() 
+--     RegisterSpell("cast", spellInput:GetText())
+--     spellInput:SetText("") 
+-- end)
+
+-- -- Button: Add to Fails
+-- local addFailBtn = CreateFrame("Button", nil, AnnouncePanel, "UIPanelButtonTemplate")
+-- addFailBtn:SetWidth(100); addFailBtn:SetHeight(24)
+-- addFailBtn:SetPoint("LEFT", addCastBtn, "RIGHT", 5, 0)
+-- addFailBtn:SetText("Add Fail")
+-- -- addFailBtn:SetScript("OnClick", function() RegisterSpell("fail") end)
+-- addFailBtn:SetScript("OnClick", function() 
+--     RegisterSpell("fail", spellInput:GetText())
+--     spellInput:SetText("") 
+-- end)
+
+-- -- 3. List Guide
+-- AddSnippetGuide(AnnouncePanel, "--- Currently Registered Spells (Use /foa list to see all) ---")
+
+-- -- Future: You can add a ScrollFrame here to list and delete spells visually.
+
+
+
+
+
+
+
 
 -- --- Druid Tab ---
 local DruidPanel = CreateClassPanel("DRUID")
-CreateTabButton(2, "Druid", "DRUID", 75)
+CreateTabButton(3, "Druid", "DRUID", 75)
 
 -- Tab Description
 AddPanelDescription(DruidPanel, "Advanced Druid logic and macro-friendly shapeshift settings.\nThese settings only apply to scripts this addon provides (e.g., fo_cast).")
@@ -444,6 +555,15 @@ loader:SetScript("OnEvent", function()
     if Dru_TreeLock_CB then
         Dru_TreeLock_CB:SetChecked(fo_Settings.lockTreeForm)
     end
+
+    if Ann_DoCasts_CB then
+        Ann_DoCasts_CB:SetChecked(fo_Settings.announcerDoCasts)
+    end
+    
+    if G_TauntResistAnnounce_CB then
+        G_TauntResistAnnounce_CB:SetChecked(fo_Settings.announceTauntResist)
+    end
+
 
     -- Update Minimap button after Minimap is ready
     this:SetScript("OnUpdate", function()

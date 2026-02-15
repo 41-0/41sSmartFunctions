@@ -14,51 +14,18 @@ FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal", "Shapeshift" }
 -- SETTINGS INITIALIZATION
 -- ==========================================================
 fo_Settings = fo_Settings or {}
--- This function ensures all settings have a default value
--- without overwriting existing user configurations.
 
-local function InitializeSettings()
-    -- 1. General Settings
-    if fo_Settings.selfCastEnabled == nil then fo_Settings.selfCastEnabled = true end
-
-    -- Druid Settings (Existing)
-    if fo_Settings.autoCancelForm == nil then fo_Settings.autoCancelForm = true end
-    if fo_Settings.autoShapeshift == nil then fo_Settings.autoShapeshift = true end
-    if fo_Settings.lockHumanForm == nil then fo_Settings.lockHumanForm = false end
-    if fo_Settings.lockBearForm == nil then fo_Settings.lockBearForm = true end
-    if fo_Settings.lockCatForm == nil then fo_Settings.lockCatForm = true end
-    if fo_Settings.lockMoonkinForm == nil then fo_Settings.lockMoonkinForm = true end
-    if fo_Settings.lockTreeForm == nil then fo_Settings.lockTreeForm = true end
-    if fo_Settings.prioritizeBear == nil then fo_Settings.prioritizeBear = true end
-
-    -- [[ NEW: Frenzied Regeneration Management ]] --
-    if fo_Settings.preventRageWasteDuringFR == nil then 
-        fo_Settings.preventRageWasteDuringFR = true 
-    end
-    if fo_Settings.frenziedRegenThreshold == nil then 
-        fo_Settings.frenziedRegenThreshold = 80 
-    end
-
-    -- [[ NEW: Rage Spells Table ]] --
-    -- This table must exist for the filter to look up spell names
-    if fo_Settings.rageSpells == nil then
-        fo_Settings.rageSpells = {
-            ["maul"] = true,
-            ["swipe"] = true,
-        }
-    end
-end
 
 --- Core logic for aura scanning using texture paths and tooltip text.
 -- @param spellName: The pure name of the spell or a texture path segment.
 -- @param unit: A valid WoW UnitID (e.g., "player", "target").
 local function _CheckAuraByName(spellName, unit)
     if not unit or not UnitExists(unit) then return false end
-    
+
     -- Search name is pre-lowered for consistency
     local searchName = strlower(spellName)
-    local types = {"HELPFUL", "HARMFUL"}
-    
+    local types = { "HELPFUL", "HARMFUL" }
+
     for _, auraType in pairs(types) do
         local i = 1
         while true do
@@ -74,7 +41,7 @@ local function _CheckAuraByName(spellName, unit)
             fo_scanner:SetOwner(WorldFrame, "ANCHOR_NONE")
             fo_scanner:ClearLines()
             if auraType == "HELPFUL" then fo_scanner:SetUnitBuff(unit, i) else fo_scanner:SetUnitDebuff(unit, i) end
-            
+
             local tooltipText = FoAuraScannerTextLeft1:GetText()
             if tooltipText and strlower(tooltipText) == searchName then
                 return true
@@ -117,52 +84,52 @@ local function _GetSmartTarget(spellName, forceMouseover)
     return "target"
 end
 
--- Handles the actual spell casting mechanics including auto-dismount and target switching
-local function _DoCast(spellName, target)
-    -- Ensure user is dismounted before casting
-    if fo_dismount() then fo_dismount() end
-    
-    -- Fix for specific Feral spell syntax and casing
-    local finalSpell = spellName
-    local lowerName = string.lower(spellName)
-    if lowerName == "faerie fire (feral)" or lowerName == "faerie fire (feral)()" then
-        finalSpell = "Faerie Fire (Feral)()"
-    end
+-- -- Handles the actual spell casting mechanics including auto-dismount and target switching
+-- local function _DoCast(spellName, target)
+--     -- Ensure user is dismounted before casting
+--     if fo_dismount() then fo_dismount() end
 
-    if target == "player" then
-        CastSpellByName(finalSpell, 1) -- '1' enables self-cast
-    elseif target and UnitExists(target) and target ~= "target" then
-        local hadTarget = UnitExists("target")
-        TargetUnit(target)
-        CastSpellByName(finalSpell)
-        if hadTarget then TargetLastTarget() else ClearTarget() end
-    else
-        CastSpellByName(finalSpell)
-    end
-end
+--     -- Fix for specific Feral spell syntax and casing
+--     local finalSpell = spellName
+--     local lowerName = string.lower(spellName)
+--     if lowerName == "faerie fire (feral)" or lowerName == "faerie fire (feral)()" then
+--         finalSpell = "Faerie Fire (Feral)()"
+--     end
 
--- Helper: Get current form name
-function _GetShapeshiftForm()
-    for i = 1, GetNumShapeshiftForms() do
-        local _, name, active = GetShapeshiftFormInfo(i)
-        if active then
-            return name
-        end
-    end
-    return "Human"
-end
+--     if target == "player" then
+--         CastSpellByName(finalSpell, 1) -- '1' enables self-cast
+--     elseif target and UnitExists(target) and target ~= "target" then
+--         local hadTarget = UnitExists("target")
+--         TargetUnit(target)
+--         CastSpellByName(finalSpell)
+--         if hadTarget then TargetLastTarget() else ClearTarget() end
+--     else
+--         CastSpellByName(finalSpell)
+--     end
+-- end
 
--- Helper: Cancel current shapeshift form
-function fo_CancelCurrentForm()
-    for i = 1, GetNumShapeshiftForms() do
-        local _, _, active = GetShapeshiftFormInfo(i)
-        if active then
-            CastShapeshiftForm(i) -- Toggles off the current form
-            return true
-        end
-    end
-    return false
-end
+-- -- Helper: Get current form name
+-- function _GetShapeshiftForm()
+--     for i = 1, GetNumShapeshiftForms() do
+--         local _, name, active = GetShapeshiftFormInfo(i)
+--         if active then
+--             return name
+--         end
+--     end
+--     return "Human"
+-- end
+
+-- -- Helper: Cancel current shapeshift form
+-- function fo_CancelCurrentForm()
+--     for i = 1, GetNumShapeshiftForms() do
+--         local _, _, active = GetShapeshiftFormInfo(i)
+--         if active then
+--             CastShapeshiftForm(i) -- Toggles off the current form
+--             return true
+--         end
+--     end
+--     return false
+-- end
 
 -- ==========================================================
 -- Public API (Functions to use in Macros)
@@ -174,14 +141,14 @@ end
 -- ==========================================================
 function fo_showTargetTexture()
     local unit = "target"
-    if not UnitExists(unit) then 
+    if not UnitExists(unit) then
         DEFAULT_CHAT_FRAME:AddMessage("No target selected.")
-        return 
+        return
     end
 
     DEFAULT_CHAT_FRAME:AddMessage("|cff00ffff--- Target Buff/Debuff Textures ---|r")
-    
-    local types = {"HELPFUL", "HARMFUL"}
+
+    local types = { "HELPFUL", "HARMFUL" }
     for _, auraType in pairs(types) do
         DEFAULT_CHAT_FRAME:AddMessage("|cffaaaaaa[" .. auraType .. "]|r")
         for i = 1, 32 do
@@ -191,39 +158,12 @@ function fo_showTargetTexture()
             else
                 texture = UnitDebuff(unit, i)
             end
-            
+
             if not texture then break end
             DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffffff00[%d]|r %s", i, texture))
         end
     end
 end
-
--- ==========================================================
--- Aura Checker
--- ==========================================================
--- @param spellName: e.g., "Moonfire(Rank 1)" or "Moonfire"
--- @param unit: The unit to inspect. Accepts standard WoW unit IDs such as "target", "player", "pet", "party1", or "mouseover". Defaults to "target" if omitted.
-
--- 1. Manual Target Version (User-defined unit)
-function fo_aura(spellName, unit)
-    local targetUnit = unit or "target"
-    local pureName = string.gsub(spellName, "%(Rank %d+%)", "")
-    return _CheckAuraByName(pureName, targetUnit)
-end
-
--- 2. Self-Only Version (Hardcoded to "player")
-function fo_auraSelf(spellName)
-    local pureName = string.gsub(spellName, "%(Rank %d+%)", "")
-    return _CheckAuraByName(pureName, "player")
-end
-
--- 3. Smart Target Version (Prioritizes mouseover)
-function fo_auraSmart(spellName, forceMouseover)
-    local u = _GetSmartTarget(spellName, forceMouseover)
-    local pureName = string.gsub(spellName, "%(Rank %d+%)", "")
-    return _CheckAuraByName(pureName, u)
-end
-
 
 -- ==========================================================
 -- Smart cast spell with mouseover override
@@ -246,12 +186,12 @@ local function _FinalizeTarget(unit)
 
     -- 2. If no unit exists, check for Auto Self-Cast.
     if fo_Settings.selfCastEnabled then
-        -- Optional: Add a check here if you want to prevent self-casting 
+        -- Optional: Add a check here if you want to prevent self-casting
         -- offensive spells, but usually, WoW's internal logic handles the error.
         return "player"
     end
 
-    -- 3. Otherwise, return nil. 
+    -- 3. Otherwise, return nil.
     -- This prevents the "Glowing Hand" cursor which requires a manual click.
     return nil
 end
@@ -264,7 +204,7 @@ end
 function fo_cast(spellName, forceMouseover)
     if not spellName or spellName == "" then return end
     local lowerName = string.lower(spellName)
-   
+
     -- 1. Run all registered filters
     -- If any filter returns false, the execution stops immediately
     for _, filterFunc in ipairs(fo_castFilters) do
@@ -277,7 +217,7 @@ function fo_cast(spellName, forceMouseover)
     -- If the class handler allows the cast, we then find the best target.
     -- (Mouseover, Target, or Self based on priority)
     local u = _GetSmartTarget(spellName, forceMouseover)
-    
+
     -- [3] FINAL EXECUTION
     -- Execute the spell on the determined target.
     local target = _FinalizeTarget(u)
@@ -326,6 +266,31 @@ function fo_smartCast(helpSpell, harmSpell, allowHarmMouseover)
     end
 end
 
+-- ==========================================================
+-- Aura Checker
+-- ==========================================================
+-- @param spellName: e.g., "Moonfire(Rank 1)" or "Moonfire"
+-- @param unit: The unit to inspect. Accepts standard WoW unit IDs such as "target", "player", "pet", "party1", or "mouseover". Defaults to "target" if omitted.
+
+-- 1. Manual Target Version (User-defined unit)
+function fo_aura(spellName, unit)
+    local targetUnit = unit or "target"
+    local pureName = string.gsub(spellName, "%(Rank %d+%)", "")
+    return _CheckAuraByName(pureName, targetUnit)
+end
+
+-- 2. Self-Only Version (Hardcoded to "player")
+function fo_auraSelf(spellName)
+    local pureName = string.gsub(spellName, "%(Rank %d+%)", "")
+    return _CheckAuraByName(pureName, "player")
+end
+
+-- 3. Smart Target Version (Prioritizes mouseover)
+function fo_auraSmart(spellName, forceMouseover)
+    local u = _GetSmartTarget(spellName, forceMouseover)
+    local pureName = string.gsub(spellName, "%(Rank %d+%)", "")
+    return _CheckAuraByName(pureName, u)
+end
 
 -- ==========================================================
 -- Resource CHECKER
@@ -333,13 +298,13 @@ end
 
 --- [Base/Manual] fo_RS(stat, op, val, unit)
 -- @param unit: Optional (Defaults to "target")
-    function fo_RS(statType, operator, threshold, unit)
+function fo_RS(statType, operator, threshold, unit)
     unit = unit or "target"
     if not UnitExists(unit) then return false end
 
     local current, max
     statType = string.lower(statType)
-    
+
     -- 1. Get stats with shorthand support
     -- "l" = Life(HP), "p" = Power(Mana, Rage, Energy)
     if statType == "l" or statType == "hp" or statType == "health" then
@@ -364,11 +329,16 @@ end
     if not targetVal or not current then return false end
 
     -- 3. Logic Comparison
-    if operator == ">" then return current > targetVal
-    elseif operator == "<" then return current < targetVal
-    elseif operator == ">=" then return current >= targetVal
-    elseif operator == "<=" then return current <= targetVal
-    elseif operator == "==" then return current == targetVal
+    if operator == ">" then
+        return current > targetVal
+    elseif operator == "<" then
+        return current < targetVal
+    elseif operator == ">=" then
+        return current >= targetVal
+    elseif operator == "<=" then
+        return current <= targetVal
+    elseif operator == "==" then
+        return current == targetVal
     end
     return false
 end
@@ -384,9 +354,6 @@ function fo_RSSmart(stat, op, val, force)
     return fo_RS(stat, op, val, unit)
 end
 
-
-
-
 -- ==========================================================
 -- Coolddown Checker
 -- ==========================================================
@@ -395,27 +362,26 @@ end
 function fo_isCD(spellName)
     local searchName = string.lower(spellName)
     local i = 1
-    
+
     -- Scan the spellbook for the specified spell
     while true do
         local name = GetSpellName(i, "spell")
         if not name then break end -- Exit if we've reached the end of the spellbook
-        
+
         -- Case-insensitive match
         if string.lower(name) == searchName then
             local _, duration = GetSpellCooldown(i, "spell")
-            
+
             -- If duration is greater than 1.5 seconds, it's a real cooldown.
             -- If it's 0 or <= 1.5, it's either ready or just the Global Cooldown.
             return (duration > 1.5)
         end
         i = i + 1
     end
-    
+
     -- Return false if the spell doesn't exist (cannot be on cooldown)
     return false
 end
-
 
 -- ==========================================================
 -- Equipment Checker
@@ -423,7 +389,7 @@ end
 
 -- Internal helper to scan tooltips for specific keywords.
 local function fo_scanFor(slotID, keyword)
--- 0. Absolute Safety: Check if the player is currently in a state 
+    -- 0. Absolute Safety: Check if the player is currently in a state
     -- where scanning might be dangerous (like during a talent reset).
     -- In Vanilla, checking if we have a valid unit name can be a quick sanity check.
     if not UnitName("player") then return false end
@@ -439,33 +405,30 @@ local function fo_scanFor(slotID, keyword)
     fo_scanner:ClearLines()
 
     -- Use pcall (protected call) to prevent crash if memory is unstable.
-    local ok, hasItem = pcall(function() 
-        return fo_scanner:SetInventoryItem("player", slotID) 
+    local ok, hasItem = pcall(function()
+        return fo_scanner:SetInventoryItem("player", slotID)
     end)
 
     if not ok or not hasItem then return false end
 
     for i = 1, 5 do
-        local leftObj = getglobal("FoAuraScannerTextLeft"..i)
+        local leftObj = getglobal("FoAuraScannerTextLeft" .. i)
         if leftObj then
             local left = leftObj:GetText()
-            local rightObj = getglobal("FoAuraScannerTextRight"..i)
+            local rightObj = getglobal("FoAuraScannerTextRight" .. i)
             local right = (rightObj and rightObj:GetText()) or ""
-            
+
             -- Case-insensitive and plain text search for reliability
-            local content = string.lower((left or "")..right)
+            local content = string.lower((left or "") .. right)
             local k = string.lower(keyword)
 
-            if string.find(content, k, 1, true) then 
-                return true 
+            if string.find(content, k, 1, true) then
+                return true
             end
         end
     end
     return false
 end
-
-
-
 
 -- Returns true if a Shield is equipped
 function fo_hasShield()
@@ -483,25 +446,24 @@ function fo_hasDW()
     -- 1. Check Main-hand (Slot 16)
     local mainItem = GetInventoryItemLink("player", 16)
     if not mainItem then return false end -- Main hand is empty
-    
+
     -- 2. Check Off-hand (Slot 17)
     local offItem = GetInventoryItemLink("player", 17)
     if not offItem or fo_hasShield() then return false end -- Off-hand is empty or a shield
 
     -- 3. Verify Off-hand is actually a weapon (Excluding "Held in Off-hand" items)
-    local weaponTypes = {"One-Hand", "Dagger", "Sword", "Axe", "Mace", "Fist"}
+    local weaponTypes = { "One-Hand", "Dagger", "Sword", "Axe", "Mace", "Fist" }
     for _, wType in ipairs(weaponTypes) do
         if fo_scanFor(17, wType) then
             return true
         end
     end
-    
+
     return false
 end
 
-
 -- ==========================================================
--- Spell Checker
+-- Spellbook Checker
 -- ==========================================================
 
 -- Returns true if the spell is found in the player's spellbook.
@@ -512,14 +474,13 @@ function fo_hasSpell(spellName)
     while true do
         local name = GetSpellName(i, "spell")
         if not name then break end
-        if string.lower(name) == sName then 
-            return true 
+        if string.lower(name) == sName then
+            return true
         end
         i = i + 1
     end
     return false
 end
-
 
 -- ==========================================================
 -- Combat Utilities
@@ -546,17 +507,17 @@ function fo_startStealth()
             CastSpellByName("Prowl")
             return
         end
-        -- Note: If we are a Cat but don't have Prowl yet, 
+        -- Note: If we are a Cat but don't have Prowl yet,
         -- we still shouldn't use Shadowmeld here (usually).
-    
-    -- 2. Non-Cat states (Humanoid, etc.)
+
+        -- 2. Non-Cat states (Humanoid, etc.)
     else
         -- Prioritize Rogue Stealth first
         if fo_hasSpell("Stealth") then
             CastSpellByName("Stealth")
             return
         end
-        
+
         -- Finally, use Shadowmeld if available
         if fo_hasSpell("Shadowmeld") then
             CastSpellByName("Shadowmeld")
@@ -564,7 +525,6 @@ function fo_startStealth()
         end
     end
 end
-
 
 -- Checks if the player is currently auto-attacking.
 function fo_isAttacking()
@@ -597,7 +557,6 @@ function fo_isShooting()
     return false
 end
 
-
 function fo_startShoot()
     if fo_isShooting() then return end
 
@@ -606,52 +565,50 @@ function fo_startShoot()
 
     local spell = nil
     for i = 1, 5 do
-        local left = getglobal("FoAuraScannerTextLeft"..i):GetText()
-        local right = getglobal("FoAuraScannerTextRight"..i):GetText()
-        local content = (left or "")..(right or "")
-        
-        if string.find(content, "Wand") then spell = "Shoot"; break
-        elseif string.find(content, "Crossbow") then spell = "Shoot Crossbow"; break
-        elseif string.find(content, "Bow") then spell = "Shoot Bow"; break
-        elseif string.find(content, "Gun") then spell = "Shoot Gun"; break
+        local left = getglobal("FoAuraScannerTextLeft" .. i):GetText()
+        local right = getglobal("FoAuraScannerTextRight" .. i):GetText()
+        local content = (left or "") .. (right or "")
+
+        if string.find(content, "Wand") then
+            spell = "Shoot"; break
+        elseif string.find(content, "Crossbow") then
+            spell = "Shoot Crossbow"; break
+        elseif string.find(content, "Bow") then
+            spell = "Shoot Bow"; break
+        elseif string.find(content, "Gun") then
+            spell = "Shoot Gun"; break
         end
     end
 
     if spell then CastSpellByName(spell) end
 end
 
-
 -- Stops all current actions: Spell casting, Channeling, Auto-Attack, and Shooting.
 function fo_stopAll()
     -- 1. Stop Spell Casting & Channeling
     SpellStopCasting()
-    
+
     -- 2. Stop Auto-Attack (if active)
     if fo_isAttacking() then
         AttackTarget()
     end
-    
+
     -- 3. Stop Auto-Shot / Wand Shooting
-    -- In 1.12, 'Shoot' and 'Auto Shot' are toggles. 
+    -- In 1.12, 'Shoot' and 'Auto Shot' are toggles.
     -- We check the action bar to see if they are active before toggling them off.
     if fo_isShooting() then
         -- This logic assumes 'Shoot' or 'Auto Shot' is on your action bar.
         -- If it's a wand, SpellStopCasting often handles it, but this is safer:
-        SpellStopCasting() 
+        SpellStopCasting()
     end
 end
 
-
-
-
-
-
 -- ==========================================================
--- Dismount Logic 
+-- Dismount Logic
 -- ==========================================================
 -- List of specific mount textures found on this server
-FO_MOUNT_TEXTURES = { 
-    "inv_pet_speedy", 
+FO_MOUNT_TEXTURES = {
+    "inv_pet_speedy",
     "ability_mount_",
     "spell_nature_swiftness",
     "inv_misc_foot_01",
@@ -659,7 +616,7 @@ FO_MOUNT_TEXTURES = {
     "ability_druid_aquaticform"
 }
 -- Dismount Protection - any buff if its NAME contains these words
-FO_PROTECTED_KEYWORDS = { 
+FO_PROTECTED_KEYWORDS = {
     "Form",    -- Cat Form, Bear Form, Moonkin Form, etc.
     "Aura",    -- Devotion Aura, Sanctity Aura, etc.
     "Stance",  -- Battle Stance, Defensive Stance, etc.
@@ -672,13 +629,13 @@ function fo_dismount()
         local id = GetPlayerBuff(i, "HELPFUL")
         -- Stop loop if no more buffs
         if id == -1 then break end
-        
+
         -- 1. Only target buffs with NO time limit
         if GetPlayerBuffTimeLeft(id) == 0 then
             local texture = GetPlayerBuffTexture(id)
             if texture then
                 local texLower = string.lower(texture)
-                
+
                 -- 2. Check if the texture matches our mount list
                 local isMountCandidate = false
                 for _, pattern in pairs(FO_MOUNT_TEXTURES) do
@@ -694,18 +651,18 @@ function fo_dismount()
                     fo_scanner:SetPlayerBuff(id)
                     local buffName = FoAuraScannerTextLeft1:GetText() or ""
                     local buffNameLower = string.lower(buffName)
-                    
+
                     -- 4. Protection Logic
                     local isProtected = false
-                    
+
                     -- EXCEPTION: "Travel Form" and "Aquatic Form" contain the word "form",
                     -- but we want them to be cancelled like regular mounts.
                     if buffNameLower ~= "travel form" and buffNameLower ~= "aquatic form" then
                         -- Check if any protected keywords exist in the buff name
                         for _, key in pairs(FO_PROTECTED_KEYWORDS) do
-                            if string.find(buffNameLower, string.lower(key)) then 
-                                isProtected = true 
-                                break 
+                            if string.find(buffNameLower, string.lower(key)) then
+                                isProtected = true
+                                break
                             end
                         end
                     end
@@ -722,36 +679,183 @@ function fo_dismount()
     return false -- No mount/removable form found
 end
 
+-- ==========================================================
+-- Spell Announcer: Logic & Registration
+-- ==========================================================
+
+-- Helper: Converts "healing touch" to "Healing Touch"
+local function ToTitleCase(str)
+    return (string.gsub(str, "%f[%a]%a", string.upper))
+end
+
+-- Helper: Determines the best chat channel
+local function GetBestChannel()
+    if GetNumRaidMembers() > 0 then return "RAID" end
+    if GetNumPartyMembers() > 0 then return "PARTY" end
+    return "PRINT"
+end
+
+-- Centralized function to register spells (Used by both GUI and CLI)
+-- local function RegisterSpell(listType, spellName)
+--     if not spellName or spellName == "" then return end
+
+--     local key = string.lower(spellName)
+
+--     -- Ensure the nested data structure exists
+--     if not fo_Settings.announcerDict then
+--         fo_Settings.announcerDict = { casts = {}, fails = {} }
+--     end
+--     if not fo_Settings.announcerDict.casts then fo_Settings.announcerDict.casts = {} end
+--     if not fo_Settings.announcerDict.fails then fo_Settings.announcerDict.fails = {} end
+
+--     if listType == "cast" then
+--         fo_Settings.announcerDict.casts[key] = true
+--         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Announcer]|r Added '" ..
+--         ToTitleCase(key) .. "' to [Casts] (All Results).")
+--     elseif listType == "fail" then
+--         fo_Settings.announcerDict.fails[key] = true
+--         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Announcer]|r Added '" ..
+--         ToTitleCase(key) .. "' to [Fails] (Failures Only).")
+--     end
+-- end
+
+-- Main execution: Process combat log messages
+local function ExecuteTauntAnnounce(combatLogMsg)
+    -- Guard: Check if the feature is enabled
+    if not fo_Settings.announceTauntResist then return end
+
+    local lowerLog = string.lower(combatLogMsg)
+
+    -- 1. Identify if a taunt spell is in the log
+    local foundSpell = nil
+    for spell, _ in pairs(fo_Settings.tauntSpells) do
+        if string.find(lowerLog, spell) then
+            foundSpell = spell
+            break
+        end
+    end
+
+    if not foundSpell then return end
+
+    -- 2. Detect failure types (Resist, Miss, Dodge, etc.)
+    local failureKeywords = { "resisted", "missed", "dodged", "parried", "immune" }
+    local foundFail = nil
+    for _, word in pairs(failureKeywords) do
+        if string.find(lowerLog, word) then
+            foundFail = string.upper(word)
+            break
+        end
+    end
+
+    -- 3. Output announcement if a failure occurred
+    if foundFail then
+        local displayName = "[" .. ToTitleCase(foundSpell) .. "]"
+        local finalMsg = displayName .. " " .. foundFail .. "!"
+
+        local channel = GetBestChannel()
+        if channel == "PRINT" then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[Taunt Alert]:|r " .. finalMsg)
+        else
+            SendChatMessage(finalMsg, channel)
+        end
+    end
+end
+
+
+
+
+-- -- Slash Command Handler
+-- SLASH_FOANNOUNCE1 = "/foa"
+-- SlashCmdList["FOANNOUNCE"] = function(msg)
+--     local _, _, action, subAction, rest = string.find(msg, "(%S+)%s*(%S+)%s*(.*)")
+--     action = action and string.lower(action) or ""
+--     subAction = subAction and string.lower(subAction) or ""
+--     rest = rest and string.lower(rest) or ""
+
+--     -- Default: Show GUI
+--     if action == "" then
+--         if fo_ConfigWindow then fo_ConfigWindow:Show() end
+--         return
+--     end
+
+--     -- CASE: LIST
+--     if action == "list" then
+--         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Announcer List]|r")
+--         if not fo_Settings.announcerDict or not fo_Settings.announcerDict.casts then
+--             DEFAULT_CHAT_FRAME:AddMessage(" No spells registered.")
+--             return
+--         end
+--         for k in pairs(fo_Settings.announcerDict.casts) do DEFAULT_CHAT_FRAME:AddMessage(" [Cast] " .. ToTitleCase(k)) end
+--         for k in pairs(fo_Settings.announcerDict.fails) do DEFAULT_CHAT_FRAME:AddMessage(" [Fail] " .. ToTitleCase(k)) end
+--         return
+--     end
+
+--     -- CASE: ADD
+--     if action == "add" then
+--         if (subAction == "cast" or subAction == "fail") and rest ~= "" then
+--             RegisterSpell(subAction, rest)
+--         else
+--             DEFAULT_CHAT_FRAME:AddMessage("Usage: /foa add cast/fail [spellname]")
+--         end
+--         return
+--     end
+
+--     -- CASE: REMOVE
+--     if action == "rem" or action == "del" then
+--         if rest == "all" then
+--             fo_Settings.announcerDict = { casts = {}, fails = {} }
+--             DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[Announcer] Cleared all spells.|r")
+--         elseif rest ~= "" then
+--             local key = string.lower(rest)
+--             fo_Settings.announcerDict.casts[key] = nil
+--             fo_Settings.announcerDict.fails[key] = nil
+--             DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[Announcer] Removed:|r " .. ToTitleCase(key))
+--         end
+--         return
+--     end
+-- end
+
+
 
 -- ==========================================================
 -- EVENT HANDLER FOR DATA LOADING
 -- ==========================================================
-
 local f = CreateFrame("Frame")
+-- Register Initialization Event
 f:RegisterEvent("VARIABLES_LOADED")
-f:SetScript("OnEvent", function()
-    -- 1. Ensure the saved variable table exists
-    fo_Settings = fo_Settings or {}
+-- Register Combat Log Events
+f:RegisterEvent("CHAT_MSG_SPELL_SELF_BUFF")
+f:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
 
-    -- 2. Automatically merge all defaults from fo_DefaultSettings
-    -- This replaces the need for manual InitializeSettings()
-    if fo_DefaultSettings then
-        for key, value in pairs(fo_DefaultSettings) do
-            -- If the setting is a table (like rageSpells), handle it as a sub-merge
-            if type(value) == "table" then
-                fo_Settings[key] = fo_Settings[key] or {}
-                for subKey, subValue in pairs(value) do
-                    if fo_Settings[key][subKey] == nil then
-                        fo_Settings[key][subKey] = subValue
+
+f:SetScript("OnEvent", function()
+    -- CASE 1: Settings Initialization
+    if event == "VARIABLES_LOADED" then
+        fo_Settings = fo_Settings or {}
+        if fo_DefaultSettings then
+            for key, value in pairs(fo_DefaultSettings) do
+                if type(value) == "table" then
+                    fo_Settings[key] = fo_Settings[key] or {}
+                    for subKey, subValue in pairs(value) do
+                        if fo_Settings[key][subKey] == nil then
+                            fo_Settings[key][subKey] = subValue
+                        end
                     end
+                elseif fo_Settings[key] == nil then
+                    fo_Settings[key] = value
                 end
-            -- If it's a simple value (boolean, number, string)
-            elseif fo_Settings[key] == nil then
-                fo_Settings[key] = value
             end
         end
+        -- Optional: Update GUI checkbox state here after settings load
+        return -- Exit after initialization
     end
 
-    -- Optional: Debug message
-    -- DEFAULT_CHAT_FRAME:AddMessage("FO Library: Settings fully merged from Defaults.")
+    -- CASE 2: Combat Log Monitoring (Taunt Announcer)
+    -- We only monitor SELF_DAMAGE for taunt resists/misses
+    if event == "CHAT_MSG_SPELL_SELF_DAMAGE" then
+        if fo_Settings and fo_Settings.announceTauntResist and fo_Settings.tauntSpells then
+            -- Note: ExecuteTauntAnnounce internally loops through fo_Settings.tauntSpells
+            ExecuteTauntAnnounce(arg1)
+        end
+    end
 end)

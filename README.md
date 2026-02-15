@@ -37,7 +37,6 @@ A unified casting system that seamlessly combines mouseover priority with standa
 ```lua
 /script fo_cast("Renew")
 /script fo_smartCast("Rejuvenation", "Moonfire")    --rejuv on friend, MF on enemy
-
 ```
 
 ## Targeting Priority
@@ -58,7 +57,6 @@ For all scripts provided by this addon, the default target priority is:
 
 -- Works for fo_cast too
 /script fo_cast("Polymorph", 1)
-
 ```
 
 <BR><BR>
@@ -77,42 +75,32 @@ A non-toggling StartAttack function. It prevents the common Vanilla issue where 
 ```lua
 /script fo_cast("Sinister Strike")
 /script fo_startAttack()
-
 ```
 
 ### 2. Smart Ranged Combat (`fo_startShoot`)
 
 A unified shooting function designed for servers with specific weapon skills (like "Shoot Bow", "Shoot Gun", etc.).
 
-### 🛠️ Features
-
 - **Universal Support**: Automatically detects whether you should use `Shoot` (Wand), `Shoot Bow`, `Shoot Crossbow`, or `Shoot Gun`.
 - **Anti-Toggle**: Specifically for Wands, this function ensures that spamming the macro will **not** stop your shooting animation.
-- **Auto-Detection**: It scans your spellbook and uses the appropriate skill for your equipped weapon.
 
 ### 📝 Macro Example
 
 ```lua
 -- Use your ranged weapon without worrying about spell names or toggling off wands
 /script fo_startShoot()
-
 ```
 
 ### 3. Smart Stealth Entry (`fo_startStealth`)
 
 A fail-safe stealth function that ensures you enter shadows without the risk of accidentally revealing yourself.
 
-### 🛠️ Features
-
 - **Anti-Toggle Protection**: Unlike the default stealth buttons, spamming this function will **never** cancel your stealth. It only activates the ability if you are currently visible.
 - **Multi-Class Support**: Automatically detects and uses the appropriate ability for your character, supporting **Stealth** (Rogue), **Prowl** (Druid), and **Shadowmeld** (Night Elf).
-- **Intelligent Priority**: It scans your spellbook and prioritizes class-based stealth over racial abilities to ensure the strongest effect is used first.
 
 ## 4. `fo_stopAll()`
 
 The "Panic Button" function. It instantly halts every combat action your character is performing.
-
-### 🛠️ Features
 
 - **Spell Stop**: Instantly cancels any active spell cast or channeled spell (like _Tranquility_ or _Hurricane_).
 - **Attack Stop**: Ceases auto-attack melee swings.
@@ -120,24 +108,23 @@ The "Panic Button" function. It instantly halts every combat action your charact
 
 ### 📝 Macro Example
 
-#### The Emergency Stop
-
-Useful for situations where you need to stop everything to CC a target or avoid reflecting damage:
-
 ```lua
 /script fo_stopAll()
-
 ```
 
-#### CC Protection
+## 5. Taunt Resist Announcements
 
-Stop everything before attempting to cast _Hibernate_ or _Entangling Roots_ to ensure no stray attacks break the CC:
+Automatically notifies your group when your taunt-related abilities are resisted or fail to land. 
 
-```lua
-/script fo_stopAll()
-/script fo_cast("Hibernate")
+* **How it works**: Monitors your combat log and announces failures (Resist, Miss, Dodge, Parry, Immune) to the appropriate channel (Party, Raid, or Instance).
+* **Supported Spells**:
+* **Warrior**: Taunt, Mocking Blow
+* **Druid**: Growl
+* **Paladin**: Hand of Reckoning
+* **Shaman**: Earthshaker Slam
 
-```
+
+* **Toggle**: Can be enabled or disabled via the **General** tab in the settings menu.
 
 ---
 
@@ -200,7 +187,7 @@ All core features can be toggled via the In-game Configuration Panel.
 
 1. **Smart Auto-Shapeshift** When you cast a feral ability (e.g., Maul or Shred), the addon checks your current form. If you are in Humanoid or an incorrect form, it automatically shifts you into the appropriate form.
 2. **Intelligent Auto-Cancelform** Eliminates "Can't use that in this form" errors. When casting non-feral spells (e.g., Healing Touch or Rejuvenation), the addon utilizes a hidden Aura Scanner to instantly cancel your current form.
-3. **Advanced Form Protection (Form Lock)** To prevent accidental de-shifting during intense combat, you can enable Form Lock via the checkboxes.
+3. **Advanced Form Protection (Form Lock)** To prevent accidental de-shifting during intense combat, you can enable Form Lock via the checkboxes. fo_cancelForm() still works.
 
 **Note:** These features only apply to spells triggered via this addon's scripts (e.g., `/script fo_cast()`). Standard action bar buttons remain unaffected to preserve vanilla-like control when needed.
 
