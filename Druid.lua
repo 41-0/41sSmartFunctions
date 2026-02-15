@@ -280,20 +280,27 @@ fo_formRequirements = {
 -- 3. Form-based permissions using bitwise flags
 local lastFRMessageTime = 0
 local function druidFilter(spellName)
-    -- Normalize input to lowercase for consistent table lookup
+    -- Normalize input to lowercase
     local name = string.lower(spellName or "")
     if name == "" then return true end
 
-
+    -- Extract base spell name (remove rank/parentheses)
+    -- If "(" exists, we strip it unless it's the specific "(feral)" variant
+    local baseName = name
+    local openParen = string.find(name, "%(")
+    if openParen and not string.find(name, "feral") then
+        baseName = string.sub(name, 1, openParen - 1)
+        baseName = string.gsub(baseName, "%s+$", "") -- Trim whitespace
+    end
 
     -- [PRE-STEP] Frenzied Regeneration Safety Check
-    -- Prevents spending Rage on non-essential spells during FR healing
     if fo_isFrenziedRegen() then
-        if fo_Settings.rageSpells and fo_Settings.rageSpells[name] then
+        -- Use baseName for table lookup
+        if fo_Settings.rageSpells and fo_Settings.rageSpells[baseName] then
             if fo_RSSelf('p', "<", fo_Settings.frenziedRegenThreshold) then
                 local now = GetTime()
                 if (now - lastFRMessageTime) > 3 then
-                    UIErrorsFrame:AddMessage("Blocking " .. name .. " for Frenzied Regen", 1.0, 0.5, 0.0)
+                    UIErrorsFrame:AddMessage("Blocking " .. baseName .. " for Frenzied Regen", 1.0, 0.5, 0.0)
                     lastFRMessageTime = now
                 end           
                 return false
@@ -302,7 +309,6 @@ local function druidFilter(spellName)
     end
 
     -- [STEP 1] Determine Form Lock Status
-    -- Check if the user has locked their current form via settings
     local isFormLocked = false
     if fo_isBear() then isFormLocked = fo_Settings.lockBearForm
     elseif fo_isCat() then isFormLocked = fo_Settings.lockCatForm
@@ -311,12 +317,11 @@ local function druidFilter(spellName)
     end
 
     -- [STEP 2] Check Feral Requirements (Auto-Shapeshift)
-    -- Consult fo_formRequirements table (keys must be lowercase)
-    local reqForms = fo_formRequirements[name]
+    -- Use baseName for lookup instead of raw name
+    local reqForms = fo_formRequirements[baseName]
     if reqForms then
         local isCorrectForm = false
         for _, fName in ipairs(reqForms) do
-            -- fName in table should be lowercase (e.g., "bear form")
             if (fName == "bear form" and fo_isBear()) or
                (fName == "cat form" and fo_isCat()) then
                 isCorrectForm = true
@@ -324,19 +329,13 @@ local function druidFilter(spellName)
             end
         end
 
-        -- If already in required form, allow spell to proceed
         if isCorrectForm then return true end
 
-        -- Handle Automatic Shifting if form is not locked
         if fo_Settings.autoShapeshift and not isFormLocked then
-            if reqForms[2] then -- Spell usable in both Bear and Cat
-                if fo_Settings.prioritizeBear then
-                    fo_castBearForm() 
-                else
-                    fo_castCatForm()
-                end
+            if reqForms[2] then 
+                if fo_Settings.prioritizeBear then fo_castBearForm() 
+                else fo_castCatForm() end
             else
-                -- Shift to the specific single required form
                 local target = string.lower(reqForms[1])
                 if target == "bear form" then fo_castBearForm()
                 elseif target == "cat form" then fo_castCatForm()
@@ -346,37 +345,31 @@ local function druidFilter(spellName)
                 end
             end
         end
-        -- Block original spell while shifting is in progress
         return false 
     end
 
     -- [STEP 3] Check Caster Permissions (Bitwise Validation)
-    -- Handles spells castable in multiple forms or requiring Caster Form
-    local allowedMask = fo_spellPermissions[name]
+    -- Use baseName for lookup
+    local allowedMask = fo_spellPermissions[baseName]
     if allowedMask then
-        -- Define current form flag
         local currentFlag = 0
-        if fo_isCaster() then currentFlag = 1      -- F_HUMAN
-        elseif fo_isTree() then currentFlag = 2    -- F_TREE
-        elseif fo_isMoonkin() then currentFlag = 4 -- F_MOONKIN
+        if fo_isCaster() then currentFlag = 1
+        elseif fo_isTree() then currentFlag = 2
+        elseif fo_isMoonkin() then currentFlag = 4
         elseif fo_isBear() then currentFlag = 8
         elseif fo_isCat() then currentFlag = 16
-        else currentFlag = 32 -- Travel, Aquatic, etc.
+        else currentFlag = 32
         end
 
-        -- Bitwise check: (allowedMask / currentFlag) % 2 == 1
         local isAllowed = (math.mod(math.floor(allowedMask / currentFlag), 2) == 1)
         if isAllowed then return true end
 
-        -- If not allowed in current form, auto-cancel form if permitted
         if not isFormLocked and fo_Settings.autoCancelForm then
             fo_cancelForm()
         end
-        -- Block execution until form is cancelled
         return false
     end
 
-    -- Default: allow the spell if it is not found in restricted tables
     return true 
 end
 

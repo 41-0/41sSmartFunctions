@@ -225,7 +225,7 @@ The Aura Checker system allows your macros to detect existing buffs or debuffs o
 - **🔍 How to find textures**: Use `/script fo_showTargetTexture()` to print active texture names to chat.
 
 - **`unit`**: A valid WoW unit ID (default is `"target"`).
-- **`forceMouseover`**: If set to `1`, forces the check on the mouseover target.
+- **`forceMouseover`**: If set to `1`, enables hostile mouseover.
 
 ### 📝 Macro Examples
 
