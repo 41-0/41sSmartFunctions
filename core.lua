@@ -7,13 +7,16 @@ if not fo_scanner then
     fo_scanner:SetOwner(WorldFrame, "ANCHOR_NONE")
 end
 
--- keywords used to identify shapeshift forms in tooltips
+-- keywords used to identify forms/stances in tooltips
+-- Used by the scanner to identify buffs that should prevent auto-unshifting
 FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal", "Shapeshift" }
+
 
 -- ==========================================================
 -- SETTINGS INITIALIZATION
 -- ==========================================================
 fo_Settings = fo_Settings or {}
+
 
 
 --- Core logic for aura scanning using texture paths and tooltip text.
@@ -445,6 +448,41 @@ end
 -- Combat Utilities
 -- ==========================================================
 
+-- Returns true if the player is currently in combat
+function fo_isCombat()
+    -- UnitAffectingCombat is the standard 1.12 API for this check
+    if UnitAffectingCombat("player") then
+        return true
+    end
+    return false
+end
+
+
+-- -- Casting State Detection (Does not work for Channeling) --
+local fo_currentCasting = false
+local castFrame = CreateFrame("Frame")
+
+-- Register only standard casting events
+castFrame:RegisterEvent("SPELLCAST_START")
+castFrame:RegisterEvent("SPELLCAST_STOP")
+castFrame:RegisterEvent("SPELLCAST_INTERRUPTED")
+castFrame:RegisterEvent("SPELLCAST_FAILED")
+
+castFrame:SetScript("OnEvent", function()
+    -- In 1.12, 'event' is globally available within this scope
+    if (event == "SPELLCAST_START") then
+        fo_currentCasting = true
+    else
+        -- SPELLCAST_STOP, INTERRUPTED, or FAILED all reset the flag
+        fo_currentCasting = false
+    end
+end)
+
+function fo_isCasting() 
+    return fo_currentCasting 
+end
+
+
 -- Returns true if the player is Stealthed or Shadowmelded.
 -- Uses both name and texture checks for maximum reliability in Vanilla 1.12.
 function fo_isStealth()
@@ -543,7 +581,7 @@ function fo_startShoot()
 end
 
 -- Stops all current actions: Spell casting, Channeling, Auto-Attack, and Shooting.
-function fo_stopAll()
+function fo_break()
     -- 1. Stop Spell Casting & Channeling
     SpellStopCasting()
 
@@ -553,14 +591,99 @@ function fo_stopAll()
     end
 
     -- 3. Stop Auto-Shot / Wand Shooting
-    -- In 1.12, 'Shoot' and 'Auto Shot' are toggles.
-    -- We check the action bar to see if they are active before toggling them off.
     if fo_isShooting() then
-        -- This logic assumes 'Shoot' or 'Auto Shot' is on your action bar.
-        -- If it's a wand, SpellStopCasting often handles it, but this is safer:
         SpellStopCasting()
     end
 end
+
+
+-- Automatically finds and uses the highest priority bandage in your bags.
+-- Prioritizes Custom/BG bandages over standard ones.
+function fo_smartBandage()
+    local bandages = {
+        "Crystal Infused Bandage",
+        "Alterac Heavy Runecloth Bandage",
+        "Arathi Basin Runecloth Bandage",
+        "Defiler's Runecloth Bandage",
+        "Heavy Runecloth Bandage",
+        "Runecloth Bandage",
+        "Arathi Basin Mageweave Bandage",
+        "Highlander's Mageweave Bandage",
+        "Warsong Gulch Mageweave Bandage",
+        "Defiler's Mageweave Bandage",
+        "Heavy Mageweave Bandage",
+        "Mageweave Bandage",
+        "Arathi Basin Silk Bandage",
+        "Highlander's Silk Bandage",
+        "Warsong Gulch Silk Bandage",
+        "Defiler's Silk Bandage",
+        "Heavy Silk Bandage",
+        "Silk Bandage",
+        "Heavy Wool Bandage",
+        "Wool Bandage",
+        "Heavy Linen Bandage",
+        "Linen Bandage"
+    }
+
+    local function fo_GetItemCount(targetName)
+    local count = 0
+    for bag = 0, 4 do
+        for slot = 1, GetContainerNumSlots(bag) do
+            local link = GetContainerItemLink(bag, slot)
+            if link then
+                -- Extract item name from the link: "|c...[Item Name]|h..."
+                local _, _, name = string.find(link, "%[(.*)%]")
+                if name == targetName then
+                    local _, stackCount = GetContainerItemInfo(bag, slot)
+                    count = count + (stackCount or 0)
+                end
+            end
+        end
+    end
+    return count
+end
+
+-- 1. Scan bags using the 1.12 helper
+    local targetBandage = nil
+    for _, name in ipairs(bandages) do
+        if fo_GetItemCount(name) > 0 then
+            targetBandage = name
+            break
+        end
+    end
+
+    if not targetBandage then
+        UIErrorsFrame:AddMessage("No bandages found!", 1.0, 0.1, 0.1)
+        return
+    end
+
+    -- 2. Target Acquisition
+    local u = _GetSmartTarget(targetBandage, false)
+    local targetUnit = _FinalizeTarget(u)
+
+    -- 3. Execution (Target Swap Method)
+    if targetUnit then
+        -- Target Swap Logic
+        local currentTargetExists = UnitExists("target")
+        local isTargetingSelf = UnitIsUnit("target", "player")
+
+        -- Swap target if necessary
+        if not UnitIsUnit("target", targetUnit) then
+            TargetUnit(targetUnit)
+            UseItemByName(targetBandage)
+            
+            if currentTargetExists then
+                TargetLastTarget()
+            else
+                ClearTarget()
+            end
+        else
+            UseItemByName(targetBandage)
+        end
+    end
+end
+
+
 
 -- ==========================================================
 -- Dismount Logic
@@ -695,6 +818,8 @@ local function ExecuteTauntAnnounce(combatLogMsg)
         end
     end
 end
+
+
 
 -- ==========================================================
 -- EVENT HANDLER FOR DATA LOADING

@@ -1,8 +1,8 @@
 fo_Settings = fo_Settings or {}
 
 fo_DefaultSettings = {
-
-    announceTauntResist = true,       -- Global toggle for the feature
+    selfCastEnabled = true,
+    announceTauntResist = true,
     tauntSpells = {
         ["taunt"] = true,             -- Warrior
         ["mocking blow"] = true,      -- Warrior (Damage type)
@@ -11,6 +11,13 @@ fo_DefaultSettings = {
         ["earthshaker slam"] = true,  -- Shaman (TWoW Taunt)
     },
 
+    autoCancelForm = true,
+    autoShapeshift = true,
+    prioritizeBear = true,
+    lockBearForm = true,
+    lockCatForm = false,
+    lockMoonkinForm = false,
+    lockTreeForm = false,
     frenziedRegenThreshold = 80, -- Threshold to allow spending rage
     preventRageWasteDuringFR = true,
     rageSpells = {               -- Spells to stop during Frenzied Regeneration

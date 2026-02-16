@@ -98,21 +98,18 @@ A fail-safe stealth function that ensures you enter shadows without the risk of 
 - **Anti-Toggle Protection**: Unlike the default stealth buttons, spamming this function will **never** cancel your stealth. It only activates the ability if you are currently visible.
 - **Multi-Class Support**: Automatically detects and uses the appropriate ability for your character, supporting **Stealth** (Rogue), **Prowl** (Druid), and **Shadowmeld** (Night Elf).
 
-## 4. `fo_stopAll()`
+### 4. `fo_break()`
 
-The "Panic Button" function. It instantly halts every combat action your character is performing.
-
-- **Spell Stop**: Instantly cancels any active spell cast or channeled spell (like _Tranquility_ or _Hurricane_).
-- **Attack Stop**: Ceases auto-attack melee swings.
-- **Range Stop**: Stops Wand shooting or Hunter Auto-Shot.
+Stops your casting (not channeling), auto attack, shoot.
 
 ### 📝 Macro Example
 
 ```lua
-/script fo_stopAll()
+/script fo_break()
+/script fo_cast('counterspell', 1)
 ```
 
-## 5. Taunt Resist Announcements
+### 5. Taunt Resist Announcements
 
 Automatically notifies your group when your taunt-related abilities are resisted or fail to land. 
 
@@ -123,8 +120,34 @@ Automatically notifies your group when your taunt-related abilities are resisted
 * **Paladin**: Hand of Reckoning
 * **Shaman**: Earthshaker Slam
 
-
 * **Toggle**: Can be enabled or disabled via the **General** tab in the settings menu.
+
+### 6. Smart Bandage System (`fo_smartBandage`)
+
+The addon now includes a highly optimized bandage logic specifically designed for the 1.12/Vanilla environment. It solves the classic problem of having to manually find bandages in your bags or being unable to bandage mouseover allies without losing your current target.
+
+#### **Key Features**
+
+* **Automatic Tier Selection**: Scans your bags and automatically selects the highest quality bandage available.
+* **PvP Priority**: Prioritizes Battleground-specific bandages (like *Alterac* or *Arathi Basin* variants) to save your standard bandages for open-world use.
+* **Smart Targeting**:
+* **Mouseover**: Bandages a friendly mouseover target if one exists.
+* **Target**: Bandages your current target if they are friendly.
+* **Self** (option): Automatically falls back to bandaging yourself if no other friendly targets are found.
+
+#### **How to Use**
+
+```lua
+#showtooltip Heavy Runecloth Bandage
+/script fo_smartBandage()
+```
+
+#### **Priority List (Excerpt)**
+
+1. Crystal Infused / BG-Specific Bandages (Highest Priority)
+2. Heavy Runecloth -> Runecloth
+3. Heavy Mageweave -> Mageweave
+4. ...down to Linen Bandage.
 
 ---
 
@@ -335,12 +358,13 @@ If you frequently switch between specs (e.g., Feral and Restoration), you can us
 
 ```
 
-### ⚔️ Combat & Action State
+### ⚔️ Combat & Action State (SELF ONLY)
 
 Useful for fine-tuning macro behavior based on your character's current activity.
 
 | Function               | Returns `true` if...                                    |
 | ---------------------- | ------------------------------------------------------- |
+| **`fo_isCombat()`**    | You are currently in combat.                            |
 | **`fo_isStealth()`**   | You are currently Stealthed, Prowling, or Shadowmelded. |
 | **`fo_isShooting()`**  | You are currently using a Wand or Ranged Auto-shot.     |
 | **`fo_isAttacking()`** | You are currently in Melee Auto-attack mode.            |
