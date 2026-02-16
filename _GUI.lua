@@ -277,7 +277,12 @@ AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasShield()", "Returns true if Shield equi
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_has2H()", "Returns true if 2H equipped")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasDW()", "Returns true if Dual-Wielding")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasSpell('swiftmend')", "True if the spell is in your spellbook")
-AddApiAuto(GlobalPanel, "GLOBAL", "fo_isStealth()", "Returns true if Stealthed(any kind))")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_isStealth()", "Returns true if Stealthed(any kind)")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_isAttacking()", "Returns true if attacking")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_isShooting()", "Returns true if shooting")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_isCasting()", "Returns true if Casting")
+
+
 AddApiAuto(GlobalPanel, "GLOBAL", "https://github.com/41-0/41sFunctions", "GitHub URL")
 
 
@@ -348,7 +353,7 @@ end)
 local Dru_SaveRageWhenFR_CB = CreateFrame("CheckButton", "fo_CB_Druid_SaveRageWhenFR", DruidPanel,
     "UICheckButtonTemplate")
 Dru_SaveRageWhenFR_CB:SetPoint("TOPLEFT", DruidPanel, "TOPLEFT", 20, -145)
-_G[Dru_SaveRageWhenFR_CB:GetName() .. "Text"]:SetText("Save rage when FrenziedRegen")
+_G[Dru_SaveRageWhenFR_CB:GetName() .. "Text"]:SetText("Save rage while FrenziedRegen")
 Dru_SaveRageWhenFR_CB:SetChecked(fo_Settings.preventRageWasteDuringFR)
 Dru_SaveRageWhenFR_CB:SetScript("OnClick",
     function() fo_Settings.preventRageWasteDuringFR = this:GetChecked() and true or false end)
