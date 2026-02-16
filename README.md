@@ -142,13 +142,6 @@ The addon now includes a highly optimized bandage logic specifically designed fo
 /script fo_smartBandage()
 ```
 
-#### **Priority List (Excerpt)**
-
-1. Crystal Infused / BG-Specific Bandages (Highest Priority)
-2. Heavy Runecloth -> Runecloth
-3. Heavy Mageweave -> Mageweave
-4. ...down to Linen Bandage.
-
 ---
 
 <BR><BR>
