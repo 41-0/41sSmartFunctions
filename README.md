@@ -133,7 +133,7 @@ The addon now includes a highly optimized bandage logic specifically designed fo
 * **Smart Targeting**:
 * **Mouseover**: Bandages a friendly mouseover target if one exists.
 * **Target**: Bandages your current target if they are friendly.
-* **Self** (option): Automatically falls back to bandaging yourself if no other friendly targets are found.
+* **Self**: Automatically falls back to bandaging yourself if no other friendly targets are found.Can be disabled.
 
 #### **How to Use**
 
