@@ -1,5 +1,5 @@
 ## Interface: 11200
-## Title: 41sFunctions
+## Title: 41sSmartFunctions
 
 data.lua
 core.lua
