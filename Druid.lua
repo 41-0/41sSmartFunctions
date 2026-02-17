@@ -169,42 +169,44 @@ function fo_cancelForm()
 end
 
 -- ==========================================================
--- Form Specific Spellcasts
+-- Form Specific Spellcasts (Refactored)
 -- ==========================================================
--- Execute only in Bear or Dire Bear Form
-function fo_bear(spellName, forceMouseover)
+
+-- Bear / Dire Bear Form
+function fo_bear(spellName, arg2, arg3)
     if fo_isBear() then
-        fo_cast(spellName, forceMouseover)
+        fo_cast(spellName, arg2, arg3)
     end
 end
 
--- Execute only in Cat Form
-function fo_cat(spellName, forceMouseover)
+-- Cat Form
+function fo_cat(spellName, arg2, arg3)
     if fo_isCat() then
-        fo_cast(spellName, forceMouseover)
+        fo_cast(spellName, arg2, arg3)
     end
 end
 
--- Execute only in Moonkin Form
-function fo_moonkin(helpSpell, harmSpell, forceMouseover)
+-- Moonkin Form (Dual support)
+function fo_moonkin(helpSpell, harmSpell, arg3, arg4)
     if fo_isMoonkin() then
-        fo_smartCast(helpSpell, harmSpell, forceMouseover)
+        fo_castDual(helpSpell, harmSpell, arg3, arg4)
     end
 end
 
--- Execute only in Tree of Life Form
-function fo_tree(helpSpell, harmSpell, forceMouseover)
+-- Tree of Life Form (Dual support)
+function fo_tree(helpSpell, harmSpell, arg3, arg4)
     if fo_isTree() then
-        fo_smartCast(helpSpell, harmSpell, forceMouseover)
+        fo_castDual(helpSpell, harmSpell, arg3, arg4)
     end
 end
 
--- Execute only in Caster Form
-function fo_caster(helpSpell, harmSpell, forceMouseover)
+-- Humanoid (Caster) Form (Dual support)
+function fo_caster(helpSpell, harmSpell, arg3, arg4)
     if fo_isCaster() then
-        fo_smartCast(helpSpell, harmSpell, forceMouseover)
+        fo_castDual(helpSpell, harmSpell, arg3, arg4)
     end
 end
+
 
 -- ==========================================================
 -- DRUID Status

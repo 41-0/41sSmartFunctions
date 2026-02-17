@@ -1,4 +1,4 @@
-# 41's Functions
+# 41's Smart Functions
 
 **The Essential Utility Library for TWoW**
 
@@ -11,52 +11,85 @@
 1. [Quick Start Examples](#quick-start-examples)
 2. [Targeting Priority](#targeting-priority)
 3. [Combat Utilities](#combat)
-4. [Druid Specific Features](#druid-specific-features)
-
-- [Form-Specific Wrappers](#form-specific-wrappers)
-- [Shapeshifting](#shapeshifting)
-- [Shapeshift Detection](#shapeshifting)
-- [Auto-Shapeshift & Protection](#feature-auto-cancelformshapeshift-and-form-protection)
-
-5. [Full Technical Reference (Advanced)](#full-technical-reference-advanced)
+4. [Items & Consumables](#items)
+5. [Druid Specific Features](#druid-specific-features)
+6. [Full Technical Reference (Advanced)](#full-technical-reference-advanced)
 
 - [Aura Checker (fo_aura)](#-aura-checker-fo_aura)
 - [Resource Checker (fo_RS)](#-resource-checker-fo_rs)
-- [Cooldown Checker](#-cooldown-checker-fo_iscd)
+- [Cooldown Checker](#-cooldown-checker-fo_CD)
 - [Status / Equipment Checker](#boolean-checkers)
 
-6. [Installation](#installation)
+7. [Installation](#installation)
 
----
+
+<BR><BR>
 
 # Quick Start Examples
 
-Smart Casting with Integrated Mouseover Support.
-A unified casting system that seamlessly combines mouseover priority with standard target logic.
+## Core Functions
+
+The engine automatically handles Mouseover, Target, and Self-cast logic.
 
 ```lua
+-- Smart Casting
 /script fo_cast("Renew")
-/script fo_smartCast("Rejuvenation", "Moonfire")    --rejuv on friend, MF on enemy
+
+-- Dual Casting (Auto-switches based on friendly / hostile)
+-- Casts "Rejuvenation" on friends, "Moonfire" on enemies.
+/script fo_castDual("Rejuvenation", "Moonfire")
 ```
 
-## Targeting Priority
+#### [!IMPORTANT] Always place the Helpful spell first (left) and the Harmful spell second (right).
 
-For all scripts provided by this addon, the default target priority is:
 
-1. **Mouseover** (Friend only)
-2. **Current Target**
-3. **Self-cast** (Fallback, option)
+## 🎯 Smart Target System (STS)
 
-### Enabling Mouseover on Enemies
+Many function in this addon shares the **STS** logic. This universal targeting engine manages how spells and items are directed, from friendly heals to hostile DoTs.
 
-#### To enable hostile mouseover, add 1 (any truthy value) as the final argument:
+### 🌊 Priority Logic (The "Smart" Flow)
+
+By default, the system follows a 3-step priority to ensure you never lose a beat in combat:
+
+1. **Mouseover (Friendly)**: Priority #1 for heals/buffs.
+2. **Target**: Falls back to your current target.
+3. **Self-Cast (Optional)**: Casts on yourself if no other valid target is found.
+
+> [!IMPORTANT]
+> **Selective Self-Cast**: You can disable the automatic self-cast fallback **[globally or per macro]** to prevent accidental mana waste.
+
+---
+
+### 🚩 Targeting Flags & Overrides
+
+| Flag / Input | Mode | Description |
+| --- | --- | --- |
+| *(None)* | **Smart Support** | `MO(Friend) > Target > Self` |
+| **`"m"`** | **Smart w/ Hostile MO** | `MO(Friend/Enemy) > Target > Self`. |
+| **`"d"`** | **Disable Self** | `MO > Target`. |
+| **`"s"`** | **Fixed Self** | Forces action on **Player** only. |
+| **`"party1" etc`** | **Fixed Unit** | Directly targets a specific **WoW UnitID**. Note "mouseover" is a wow unitID(fixed). |
+
+---
+
+### 📝 Macro Examples
 
 ```lua
--- Now "Wrath" can be cast on your mouseover target!
-/script fo_smartCast("Regrowth", "Wrath", 1)
+-- 1. Standard Smart Heal (MO > Target > Self)
+/script fo_cast("Renew")
 
--- Works for fo_cast too
-/script fo_cast("Polymorph", 1)
+-- 2. Smart Heal WITHOUT Self-Cast Fallback
+-- (If no MO or Target, it does nothing. Prevents accidental self-buffing.)
+/script fo_cast("Renew", "d")
+
+-- 3. Dual Cast with Hostile Mouseover Enabled
+-- Casts Remove Curse of Friend, Counterspell on Enemy(including mouseover).
+/script fo_castDual("Remove Lesser Curse", "Counterspell", "m")
+
+-- 4. Fixed Target
+-- Insert "s"(self-cast) or WoW UnitID.
+/script fo_cast("Smite", "targettarget")
+
 ```
 
 <BR><BR>
@@ -77,6 +110,8 @@ A non-toggling StartAttack function. It prevents the common Vanilla issue where 
 /script fo_startAttack()
 ```
 
+<BR>
+
 ### 2. Smart Ranged Combat (`fo_startShoot`)
 
 A unified shooting function designed for servers with specific weapon skills (like "Shoot Bow", "Shoot Gun", etc.).
@@ -91,12 +126,17 @@ A unified shooting function designed for servers with specific weapon skills (li
 /script fo_startShoot()
 ```
 
+<BR>
+
 ### 3. Smart Stealth Entry (`fo_startStealth`)
 
 A fail-safe stealth function that ensures you enter shadows without the risk of accidentally revealing yourself.
 
 - **Anti-Toggle Protection**: Unlike the default stealth buttons, spamming this function will **never** cancel your stealth. It only activates the ability if you are currently visible.
 - **Multi-Class Support**: Automatically detects and uses the appropriate ability for your character, supporting **Stealth** (Rogue), **Prowl** (Druid), and **Shadowmeld** (Night Elf).
+
+
+<BR>
 
 ### 4. `fo_break()`
 
@@ -108,6 +148,8 @@ Stops your casting (not channeling), auto attack, shoot.
 /script fo_break()
 /script fo_cast('counterspell', 1)
 ```
+
+<BR>
 
 ### 5. Taunt Resist Announcements
 
@@ -122,25 +164,85 @@ Automatically notifies your group when your taunt-related abilities are resisted
 
 * **Toggle**: Can be enabled or disabled via the **General** tab in the settings menu.
 
-### 6. Smart Bandage System (`fo_smartBandage`)
 
-The addon now includes a highly optimized bandage logic specifically designed for the 1.12/Vanilla environment. It solves the classic problem of having to manually find bandages in your bags or being unable to bandage mouseover allies without losing your current target.
+<BR><BR>
 
-#### **Key Features**
+## <a id="items"></a>🎒 Items & Consumables
 
-* **Automatic Tier Selection**: Scans your bags and automatically selects the highest quality bandage available.
-* **PvP Priority**: Prioritizes Battleground-specific bandages (like *Alterac* or *Arathi Basin* variants) to save your standard bandages for open-world use.
-* **Smart Targeting**:
-* **Mouseover**: Bandages a friendly mouseover target if one exists.
-* **Target**: Bandages your current target if they are friendly.
-* **Self**: Automatically falls back to bandaging yourself if no other friendly targets are found.Can be disabled.
+This module provides a unified interface for using items, whether they are consumables in your bags or powerful artifacts equipped on your character. It includes smart cooldown detection and prioritized logic to ensure you never waste a click.
 
-#### **How to Use**
+### 🛠️ Core Item Functions
+
+| Function | Description |
+| --- | --- |
+| `fo_item("name")` | **The Universal Item Tool.** Scans equipment slots first, then bags. It includes a built-in safety check to prevent "Not Ready" spam if the item is on cooldown. |
+| `fo_itemCD("name")` | A utility function that returns `true` if the specified item (equipped or in bags) is ready for use. |
+
+`fo_item` mimics the standard "Right-Click" behavior of your inventory
+
+---
+
+### 🧪 Smart Consumables
+
+These functions automate the selection of the best available consumable in your inventory.
+
+#### `fo_healthPot()` / `fo_manaPot()`
+
+Automatically scans your bags and uses the **highest-tier** potion available.
+
+* **Logic**: Priority flows from Major → Superior → Greater → Standard → Lesser → Minor.
+* **Efficiency**: Saves macro space by using one command for all tiers of potions.
+
+#### `fo_bandage()`
+
+Prioritizes using the best bandage in your inventory.
+
+* **Smart Check**: Automatically prevents usage if the "Recently Bandaged" debuff is active, saving your resources.
+* **Priority**: Heavy Runecloth → Runecloth → Heavy Mageweave, etc.
+
+---
+
+### 🚀 Advanced Usage & Macros
+
+Because these functions handle the "Is it ready?" and "Where is it?" logic internally, your in-game macros become significantly shorter and more readable.
+
+**1. The Panic Button**
+Use your most powerful defensive item if available; otherwise, fallback to a standard health potion.
 
 ```lua
-#showtooltip Heavy Runecloth Bandage
-/script fo_smartBandage()
+/script if not fo_item("Limited Invulnerability Potion") then fo_healthPot() end
 ```
+
+**2. Trinket & Spell Combo**
+Activate a specific trinket (like *Zandalarian Hero Charm*) only if it's ready, then proceed to cast your main spell.
+
+```lua
+/script fo_item("Zandalarian")
+/cast Shadow Bolt
+```
+
+**3. Strategic Bandaging**
+Use a bandage only if you are out of combat or have a specific window, without worrying about wasting the item on a debuffed target.
+
+```lua
+/script if fo_RS("hp < 50%", "s") then fo_bandage() end
+```
+
+---
+
+### 📢 User Feedback System
+
+To keep you informed without cluttering your screen, the item system uses two types of notifications:
+
+* **Missing Items**: Displayed in the **Chat Frame** (e.g., `[fo] Item not found: Heavy Runecloth Bandage`).
+* **Cooldowns**: Displayed as a **Yellow Warning** in the center of the screen (e.g., `Celestial Orb is not ready yet`), suppressing the default red text spam and system error sounds.
+
+
+
+
+
+
+
 
 ---
 
@@ -164,7 +266,7 @@ Examples
 -- Handles every form,help and harm,also mouseover implemented with this simple macro
 /script fo_bear('maul')
 /script fo_cat('claw')
-/script fo_tree('regrowth(rank 3)', 'faerie fire', 1)
+/script fo_tree('regrowth(rank 3)', 'faerie fire', "m")
 /script fo_caster('healing touch(rank 4)', 'wrath')
 
 ```
@@ -215,42 +317,53 @@ All core features can be toggled via the In-game Configuration Panel.
 
 For users who want to build complex custom macros, here is the complete list of available functions.
 
+
+
+
+
 ## 🔍 Aura Checker (`fo_aura`)
 
-The Aura Checker system allows your macros to detect existing buffs or debuffs on a unit. This is essential for preventing mana waste from clipping DoTs or overwriting active buffs.
+The Aura Checker ensures your macros are "aware" of active buffs and debuffs. It prevents mana waste by stopping you from clipping DoTs or overwriting active HoTs.
 
 ### Key Features
 
-- **Automatic Rank Filtering**: Automatically strips rank information (e.g., `"Regrowth(Rank 5)"` → `"Regrowth"`).
-- **Smart Detection**: Prioritizes mouseover targets.
-- **Redundancy Prevention**: Easily build macros that only cast a spell if the target doesn't already have it.
+* **Smart Targeting System**: Follows STS.
+* **Auto-Rank Filtering**: Automatically strips rank data (e.g., `"Regrowth(Rank 5)"` is treated as `"Regrowth"`).
+* **Texture Support**: Match by name (local) or texture path (global) to avoid localization issues.
 
 ### 🛠️ API Reference
 
-| Function                     | Description                                     | Example Usage       |
-| ---------------------------- | ----------------------------------------------- | ------------------- |
-| **`fo_aura(spell, unit)`**   | Checks if the specific unit has the aura.       | `"Renew", "party1"` |
-| **`fo_auraSelf(spell)`**     | Checks for an aura on the **Player**.           | `"Inner Fire"`      |
-| **`fo_auraSmart(spell, f)`** | Checks the **Smart Target** (Mouseover/Target). | `"Rejuvenation"`    |
+| Function | Description | Example |
+| --- | --- | --- |
+| **`fo_aura("name", ...)`** | Follows STS logic. "s", "m", "WoWUnitID" works. | `fo_aura("Renew")` |
+
+> [!TIP]
+> **Smart Flags:** `fo_aura` supports the same flags as `fo_cast`.
+> Use `fo_aura("Moonfire", "m")` to specifically check a hostile mouseover target.
 
 #### Arguments:
 
-- **`spellName`**: The name of the buff/debuff or its **Texture Path**.
-- **Name Match**: Use the standard display name (e.g., `"Moonfire"`).
-- **Texture Match**: Use the internal texture name (e.g., `"Spell_Nature_Rejuvenation"`).
-- **🔍 How to find textures**: Use `/script fo_showTargetTexture()` to print active texture names to chat.
+* **`spellName`**: The name of the buff/debuff or its **Texture Path**.
+* **Name Match**: Use the display name (e.g., `"Moonfire"`).
+* **Texture Match**: Use the internal icon name (e.g., `"Spell_Nature_Starfall"`).
+* **🔍 Texture ID**: Use `/script fo_showTargetTexture()` to print active texture names to chat.
 
-- **`unit`**: A valid WoW unit ID (default is `"target"`).
-- **`forceMouseover`**: If set to `1`, enables hostile mouseover.
+---
 
 ### 📝 Macro Examples
 
 ```lua
--- Cast only if missing buff
-/script if not fo_auraSmart("Rejuvenation") then fo_cast("Rejuvenation") end
+-- 1. Standard Smart Buffing
+-- Casts only if the target is missing the buff.
+/script if not fo_aura("Rejuvenation") then fo_cast("Rejuvenation") end
 
--- Using textures to avoid localization issues
-/script if not fo_auraSmart("Spell_Nature_Rejuvenation") then fo_cast("Rejuvenation") end
+-- 2. Hostile Mouseover Check
+-- Prevents re-casting Moonfire if the mouseover target already has the DoT.
+/script if not fo_aura("Moonfire", "m") then fo_cast("Moonfire", "m") end
+
+-- 3. Self Buff Detection
+-- Ensures you don't waste mana re-buffing yourself.
+/script if not fo_aura("Inner Fire", "s") then fo_cast("Inner Fire", "s") end
 
 ```
 
@@ -258,51 +371,84 @@ The Aura Checker system allows your macros to detect existing buffs or debuffs o
 
 <BR><BR>
 
-## 📊 Resource Checker (`fo_RS`)
 
-The `fo_RS` system allows for complex health and resource checks using ultra-short syntax to fit within the 255-character limit.
 
-### Key Features
 
-- **Shorthand Support**: Use `l` for Life (Health) and `p` for Power (Mana/Rage/Energy).
-- **Dynamic Thresholds**: Supports absolute values (`500`) and percentage strings (`"30%"`).
 
-### 🛠️ API Reference
+## 📊 Resource Scanner (`fo_RS`)
 
-| Function                           | Description                            | Example Usage            |
-| ---------------------------------- | -------------------------------------- | ------------------------ |
-| **`fo_RS(stat, op, val, unit)`**   | Checks status of a specific unit.      | `"l", ">", "50%", "pet"` |
-| **`fo_RSSelf(stat, op, val)`**     | Shorthand for checking the **Player**. | `"p", "<", 100`          |
-| **`fo_RSSmart(stat, op, val, f)`** | Checks the **Smart Target**.           | `"l", "<", "20%"`        |
+The `fo_RS` function allows you to create intelligent macros that change behavior based on Health or Power (Mana/Rage/Energy) levels. It supports both **percentage-based** checks and **absolute deficit** checks.
 
-#### Arguments:
+### 🔑 Key Syntax
 
-- **`stat`**: `l` (Health) or `p` (Power/Mana/Rage/Energy).
-- **`op`**: Logical operators: `>`, `<`, `>=`, `<=`, `==`.
-- **`val`**: Threshold number (`500`) or percentage (`"50%"`).
+`fo_RS("condition", "target_flag")`
 
-### 📝 Macro Examples
+* **Condition**: A string containing the stat, operator, and value (e.g., `"hp < 50%"`, `"pd > 1000"`).
+* **Target Flag (Optional)**: Uses the Smart Target System (STS).
+
+---
+
+### 💡 Stat Aliases & Deficit Mode
+
+| Alias | Description | Type |
+| --- | --- | --- |
+| **`l`**, **`hp`** | Current Life / Health | Current Value |
+| **`p`**, **`mana`** | Current Power / Mana | Current Value |
+| **`ld`**, **`hd`** | **Life Deficit** (Max - Current) | Missing Amount |
+| **`pd`**, **`md`** | **Power Deficit** (Max - Current) | Missing Amount |
+
+---
+
+### 🚀 Usage Examples
+
+#### 1. Preventing Overheal (Life Deficit)
+
+Automatically choose a spell rank based on exactly how much HP the target is missing.
 
 ```lua
--- Swiftmend if target < 30% HP
-/script if fo_RSSmart("l", "<", "30%") then fo_cast("Swiftmend") end
-
--- Barkskin if Mana > 10% and HP < 1000
-/script if fo_RSSelf("p", ">", "10%") and fo_RSSelf("l", "<", 1000) then fo_cast("Barkskin") end
-
+-- Cast Rank 4 if target is missing 1000+ HP, otherwise Rank 2
+/script if fo_RS("ld > 1000") then fo_cast("Heal(Rank 4)") else fo_cast("Heal(Rank 2)") end
 ```
+
+#### 2. Panic Button (Percentage)
+
+Standard percentage check for survival skills.
+
+```lua
+-- Cast Shield if your health drops below 30%
+/script if fo_RS("hp < 30%", "s") then fo_cast("Power Word: Shield", "s") end
+```
+
+---
+
+### 🛠️ Advanced Public API
+
+For developers who want raw numbers for their own custom logic:
+
+* `fo_lifeDeficit("unit")`: Returns the absolute number of missing HP.
+* `fo_powerDeficit("unit")`: Returns the absolute number of missing Power/Mana.
+
+
+
+
+
+
+
+
+---
+
 
 <BR><BR>
 
-## ⏳ Cooldown Checker (`fo_isCD`)
+## ⏳ Cooldown Checker (`fo_CD`)
 
-The `fo_isCD` function returns `true` if a spell is currently on cooldown. It is designed to ignore the Global Cooldown (GCD), so it only returns `true` for actual ability cooldowns (like the 15s on _Swiftmend_).
+The `fo_CD` function returns `true` if a spell is currently on cooldown. It is designed to ignore the Global Cooldown (GCD), so it only returns `true` for actual ability cooldowns (like the 15s on _Swiftmend_).
 
 ### 🛠️ API Reference
 
 | Function            | Description                                                | Example Usage |
 | ------------------- | ---------------------------------------------------------- | ------------- |
-| **`fo_isCD(name)`** | Returns `true` if the spell is on cooldown (ignoring GCD). | `"Swiftmend"` |
+| **`fo_CD(name)`** | Returns `true` if the spell is on cooldown (ignoring GCD). | `"Swiftmend"` |
 
 ### 📝 Macro Example
 
@@ -311,7 +457,7 @@ The `fo_isCD` function returns `true` if a spell is currently on cooldown. It is
 If _Swiftmend_ is on cooldown, cast _Regrowth_ instead. Otherwise, cast _Swiftmend_:
 
 ```lua
-/script if fo_isCD("Swiftmend") then fo_cast("Regrowth") else fo_cast("Swiftmend") end
+/script if fo_CD("Swiftmend") then fo_cast("Regrowth") else fo_cast("Swiftmend") end
 
 ```
 
@@ -346,8 +492,8 @@ Identify your currently equipped gear. These functions use tooltip scanning to e
 If you frequently switch between specs (e.g., Feral and Restoration), you can use one macro that detects your active talents:
 
 ```lua
--- Cast Swiftmend if you have the talent, otherwise cast Regrowth
-/script if fo_hasSpell("Swiftmend") then fo_cast("Swiftmend") else fo_cast("Regrowth") end
+-- Cast Ice Barrier / Frostbolt,Fireball if Fire spec. [respec without changing hotbar]
+/script if fo_hasSpell("Ice Barrier") and not fo_CD('Ice Barrier') and not fo_aura('Ice Barrier') then fo_cast("Ice Barrier") elseif fo_hasSpell('Ice Barrier') then fo_cast("Frostbolt") elseif fo_hasSpell('Combustion') then fo_cast('Fireball') end
 
 ```
 

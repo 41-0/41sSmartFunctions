@@ -273,3 +273,355 @@ end
 -- AddSnippetGuide(AnnouncePanel, "--- Currently Registered Spells (Use /foa list to see all) ---")
 
 -- -- Future: You can add a ScrollFrame here to list and delete spells visually.
+
+
+
+
+
+
+
+
+
+local function _FinalizeTarget(unit)
+    -- 1. If a valid unit (mouseover or target) was found, use it.
+    if unit and UnitExists(unit) then
+        return unit
+    end
+
+    -- 2. If no unit exists, check for Auto Self-Cast.
+    if fo_Settings.selfCastEnabled then
+        -- Optional: Add a check here if you want to prevent self-casting
+        -- offensive spells, but usually, WoW's internal logic handles the error.
+        return "player"
+    end
+
+    -- 3. Otherwise, return nil.
+    -- This prevents the "Glowing Hand" cursor which requires a manual click.
+    return nil
+end
+
+local function _GetSmartTarget(spellName, forceMouseover)
+    -- 1. If no mouseover exists, always default to "target"
+    if not UnitExists("mouseover") then
+        return "target"
+    end
+
+    -- 2. HELPFUL Case:
+    -- If mouseover is a friend, prioritize it for buff/aura checks.
+    if UnitCanAssist("player", "mouseover") then
+        return "mouseover"
+    end
+
+    -- 3. HARMFUL Case:
+    -- If mouseover is an enemy, only prioritize it if 'forceMouseover' is true.
+    -- Otherwise, stick to "target" to avoid accidental de-targeting in combat.
+    if UnitCanAttack("player", "mouseover") then
+        if forceMouseover then
+            return "mouseover"
+        else
+            return "target"
+        end
+    end
+
+    -- Fallback to target for all other cases
+    return "target"
+end
+
+--- Standard cast function with mouseover priority.
+--- The main casting function called by macros.
+-- @param spellName: Name of the spell to cast
+-- @param forceMouseover: If true, ignores target and forces mouseover if it exists
+function fo_cast(spellName, forceMouseover)
+    if not spellName or spellName == "" then return end
+    local lowerName = string.lower(spellName)
+
+    -- [1] Run all registered filters
+    -- If any filter returns false, the execution stops immediately
+    for _, filterFunc in ipairs(fo_castFilters) do
+        if filterFunc(lowerName) == false then
+            return -- Blocked by a filter
+        end
+    end
+    
+    -- [2] If it ends with [Non-digit] + ")", append "()" to ensure Max Rank cast.
+    if string.find(spellName, "[^0-9]%)$") and not string.find(spellName, "%(%)$") then
+        spellName = spellName .. "()"
+    end
+
+    -- [3] TARGET ACQUISITION
+    -- If the class handler allows the cast, we then find the best target.
+    -- (Mouseover, Target, or Self based on priority)
+    local u = _GetSmartTarget(spellName, forceMouseover)
+
+    -- [4] FINAL EXECUTION
+    -- Execute the spell on the determined target.
+    local target = _FinalizeTarget(u)
+    if target then
+        CastSpellByName(spellName, target)
+    end
+end
+
+-- Dual-purpose smart cast (Helpful/Harmful auto-selection) with mouseover priority and self-cast logic.
+-- helpSpell: Spell for friendly targets. Skip if "" or nil.
+-- harmSpell: Spell for enemy targets. Skip if "" or nil.
+-- allowHarmMouseover: Optional, defaults to false.
+function fo_smartCast(helpSpell, harmSpell, allowHarmMouseover)
+    -- Handle default value for allowHarmMouseover
+    if allowHarmMouseover == nil then allowHarmMouseover = false end
+
+    -- Helper local function to check if a spell string is valid
+    local function _isValid(s) return s and s ~= "" end
+
+    -- 1. Check Mouseover: Prioritize Help
+    if UnitExists("mouseover") then
+        if _isValid(helpSpell) and UnitCanAssist("player", "mouseover") then
+            fo_cast(helpSpell, true)
+            return
+        elseif _isValid(harmSpell) and allowHarmMouseover and UnitCanAttack("player", "mouseover") then
+            fo_cast(harmSpell, true)
+            return
+        end
+    end
+
+    -- 2. Check Target
+    if UnitExists("target") then
+        if _isValid(helpSpell) and UnitCanAssist("player", "target") then
+            fo_cast(helpSpell, false)
+            return
+        elseif _isValid(harmSpell) and UnitCanAttack("player", "target") then
+            fo_cast(harmSpell, false)
+            return
+        end
+    end
+
+    -- 3. Fallback: Self-cast Help
+    -- Only if helpSpell is provided and no hostile mouseover/target caught us
+    if _isValid(helpSpell) then
+        fo_cast(helpSpell, false)
+    end
+end
+
+
+
+
+
+--- [Base/Manual] fo_RS(stat, op, val, unit)
+-- @param unit: Optional (Defaults to "target")
+function fo_RS(statType, operator, threshold, unit)
+    unit = unit or "target"
+    if not UnitExists(unit) then return false end
+
+    local current, max
+    statType = string.lower(statType)
+
+    -- 1. Get stats with shorthand support
+    -- "l" = Life(HP), "p" = Power(Mana, Rage, Energy)
+    if statType == "l" or statType == "hp" or statType == "health" then
+        current = UnitHealth(unit)
+        max = UnitHealthMax(unit)
+    elseif statType == "p" or statType == "mana" or statType == "rage" or statType == "energy" then
+        current = UnitMana(unit)
+        max = UnitManaMax(unit)
+    else
+        return false
+    end
+
+    -- 2. Threshold Analysis ("50%" vs 500)
+    local targetVal
+    if type(threshold) == "string" and string.find(threshold, "%%$") then
+        local p = tonumber(string.sub(threshold, 1, -2))
+        targetVal = (max * p) / 100
+    else
+        targetVal = tonumber(threshold)
+    end
+
+    if not targetVal or not current then return false end
+
+    -- 3. Logic Comparison
+    if operator == ">" then
+        return current > targetVal
+    elseif operator == "<" then
+        return current < targetVal
+    elseif operator == ">=" then
+        return current >= targetVal
+    elseif operator == "<=" then
+        return current <= targetVal
+    elseif operator == "==" then
+        return current == targetVal
+    end
+    return false
+end
+
+--- [Self] fo_RSSelf(stat, op, val)
+function fo_RSSelf(stat, op, val)
+    return fo_RS(stat, op, val, "player")
+end
+
+--- [Smart] fo_RSSmart(stat, op, val, force)
+function fo_RSSmart(stat, op, val, force)
+    local unit = _GetSmartTarget("RSCheck", force)
+    return fo_RS(stat, op, val, unit)
+end
+
+
+
+
+
+
+
+
+
+
+--- [INTERNAL UTILITY]
+-- Evaluates if a given value represents a specific functional flag.
+-- Handles Booleans, Numbers (1), and various shorthand Keywords.
+-- @param val: The argument value to evaluate.
+-- @param flagType: The category to check against ("self" or "mouse").
+-- @return: Boolean true if the value matches the flag criteria.
+local function _isFlag(val, flagType)
+    -- Direct match for boolean true or number 1
+    if val == true or val == 1 then return true end
+    if type(val) ~= "string" then return false end
+
+    local s = string.lower(val)
+    if flagType == "self" then
+        -- Keywords for forcing the cast on the player
+        return (s == "s" or s == "self" or s == "player" or s == "p")
+    elseif flagType == "mouse" then
+        -- Keywords for enabling mouseover targeting for harmful spells
+        return (s == "m" or s == "mouse" or s == "mouseover" or s == "mo")
+    end
+    return false
+end
+
+local function _GetSmartTarget(spellName, arg2, arg3)
+    local forceSelf = false
+    local forceMouse = false
+
+    -- ARGUMENT NORMALIZATION:
+    -- Iterate through optional arguments to identify intent regardless of their position.
+    local inputs = { arg2, arg3 }
+    for i = 1, 2 do
+        local v = inputs[i]
+        if _isFlag(v, "self") then
+            forceSelf = true
+        elseif _isFlag(v, "mouse") then
+            forceMouse = true
+        elseif v == true or v == 1 then
+            -- Default behavior for generic truthy values (e.g., 1) is to enable mouseover.
+            if not forceMouse then forceMouse = true end
+        end
+    end
+
+    -- DECISION TREE:
+
+    -- 1. Explicit Force Self: Overrides everything else.
+    if forceSelf then return "player" end
+
+    -- 2. Mouseover Logic:
+    if UnitExists("mouseover") then
+        -- Helpful spells always prioritize friendly mouseover.
+        if UnitCanAssist("player", "mouseover") then
+            return "mouseover"
+        end
+        -- Harmful spells only use mouseover if the flag is explicitly enabled.
+        if UnitCanAttack("player", "mouseover") and forceMouse then
+            return "mouseover"
+        end
+    end
+
+    -- 3. Target Logic: Standard behavior if mouseover is not applicable.
+    if UnitExists("target") then return "target" end
+
+    -- 4. Global Fallback: Check if "Auto Self-Cast" is enabled in user settings.
+    if fo_Settings and fo_Settings.selfCastEnabled then
+        return "player"
+    end
+
+    -- Avoid "Glowing Hand" cursor by returning nil if no valid target is found.
+    return nil
+end
+
+
+
+
+
+-- ==========================================================
+-- RESOURCE CHECKER (Standardized)
+-- ==========================================================
+
+-- PUBLIC FUNCTION: Returns the absolute amount of missing HP
+-- Usage: fo_lifeDeficit("target")
+function fo_lifeDeficit(unitArg)
+    -- Leverage our STS for unit determination
+    local unit = _GetSmartTarget(nil, unitArg) or "player"
+    if UnitExists(unit) then
+        return UnitHealthMax(unit) - UnitHealth(unit)
+    end
+    return 0
+end
+
+
+-- [Base Engine] Internal logic
+local function _ResourceLogic(input, arg2, arg3, unit)
+    local stat, op, threshold
+    
+    -- 1. Smart Parsing (e.g., "l<20%" or "mana>500")
+    if type(input) == "string" then
+        -- Find the operator and split the string
+        local _, _, s, o, v = string.find(input, "([^%s<>!=]+)%s*([<>!=]+)%s*(.*)")
+        if s and o and v then
+            stat, op, threshold = s, o, v
+            unit = val2 or unit -- Shift unit to 2nd arg if parsing succeeded
+        else
+            stat, op, threshold = input, val2, val3
+        end
+    else
+        stat, op, threshold = input, val2, val3
+    end
+
+    if not stat or not op or not threshold or not UnitExists(unit) then return false end
+
+    -- 2. Normalize Stat Type (Aliases)
+    stat = string.lower(stat)
+    local isLife = (stat == "l" or stat == "life" or stat == "hp" or stat == "health")
+    local isPower = (stat == "p" or stat == "pow" or stat == "power" or stat == "mana" or stat == "rage" or stat == "energy" or stat == "ene")
+
+    local current, max
+    if isLife then
+        current, max = UnitHealth(unit), UnitHealthMax(unit)
+    elseif isPower then
+        current, max = UnitMana(unit), UnitManaMax(unit)
+    else
+        return false
+    end
+
+    -- 3. Threshold Analysis (Percentage support)
+    local targetVal
+    if type(threshold) == "string" and string.find(threshold, "%%$") then
+        targetVal = (max * tonumber(string.sub(threshold, 1, -2))) / 100
+    else
+        targetVal = tonumber(threshold)
+    end
+
+    -- 4. Logic Comparison
+    if op == ">" then return current > targetVal
+    elseif op == "<" then return current < targetVal
+    elseif op == ">=" then return current >= targetVal
+    elseif op == "<=" then return current <= targetVal
+    elseif op == "==" or op == "=" then return current == targetVal
+    elseif op == "!=" or op == "~=" then return current ~= targetVal
+    end
+    return false
+end
+
+-- [Main] Smart Targeting: fo_RS(input, flag1, flag2)
+function fo_RS(input, arg2, arg3)
+    local unit = _GetSmartTarget("RSCheck", arg2, arg3)
+    return _ResourceLogic(input, arg2, arg3, unit)
+end
+
+-- [Sub] Manual Targeting: fo_RSUnit(input, unit)
+function fo_RSUnit(input, unit)
+    return _ResourceLogic(input, nil, nil, unit or "target")
+end

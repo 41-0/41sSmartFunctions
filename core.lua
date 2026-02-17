@@ -18,6 +18,175 @@ FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal", "Shapeshift" }
 fo_Settings = fo_Settings or {}
 
 
+-- ==========================================================
+-- Public API (Functions to use in Macros)
+-- ==========================================================
+
+
+-- ==========================================================
+-- Debug Tool: Show all textures on your current target
+-- ==========================================================
+function fo_showTargetTexture()
+    local unit = "target"
+    if not UnitExists(unit) then
+        DEFAULT_CHAT_FRAME:AddMessage("No target selected.")
+        return
+    end
+
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ffff--- Target Buff/Debuff Textures ---|r")
+
+    local types = { "HELPFUL", "HARMFUL" }
+    for _, auraType in pairs(types) do
+        DEFAULT_CHAT_FRAME:AddMessage("|cffaaaaaa[" .. auraType .. "]|r")
+        for i = 1, 32 do
+            local texture
+            if auraType == "HELPFUL" then
+                texture = UnitBuff(unit, i)
+            else
+                texture = UnitDebuff(unit, i)
+            end
+
+            if not texture then break end
+            DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffffff00[%d]|r %s", i, texture))
+        end
+    end
+end
+
+-- ==========================================================
+-- Universal Logic Engine
+-- ==========================================================
+
+
+--- [CORE LOGIC: TARGET ACQUISITION]
+-- The "Brain" of the system. Centralizes all targeting decisions into one place.
+-- It normalizes position-independent arguments (arg2, arg3) into logic flags.
+-- Priority: ForceSelf > Mouseover (Helpful > Harmful w/ Flag) > Target > Auto-Self Setting.
+
+local function _GetSmartTarget(spellName, arg2, arg3)
+    -- Normalize the primary targeting argument (arg2)
+    local f = string.lower(tostring(arg2 or ""))
+    
+    local isSelf         = (f == "s" or f == "self")
+    local isSmartHostile = (f == "m" or f == "mo")
+    local isDisableSelf  = (f == "d" or f == "no-self")
+
+    -- 1. Explicit Force Self ("s" flag)
+    if isSelf then return "player" end
+
+    -- 2. Fixed UnitID Override
+    -- Use directly if it's a specific UnitID (e.g., "party1", "targettarget", "mouseover")
+    if arg2 and arg2 ~= "" and not (isSmartHostile or isDisableSelf) then
+        return arg2
+    end
+
+    -- 3. Mouseover Logic
+    if UnitExists("mouseover") then
+        -- Priority: Friendly mouseover for helpful spells
+        if UnitCanAssist("player", "mouseover") then
+            return "mouseover"
+        end
+        -- Hostile mouseover: Enabled only with "m" flag
+        if UnitCanAttack("player", "mouseover") and isSmartHostile then
+            return "mouseover"
+        end
+    end
+
+    -- 4. Target Logic
+    if UnitExists("target") then
+        return "target"
+    end
+
+    -- 5. Fallback Logic (Self-Cast)
+    -- Must pass two checks:
+    -- A) The macro does NOT have the "d" (disable) flag.
+    -- B) The Global Setting "selfCastEnabled" is TRUE.
+    if not isDisableSelf then
+        if fo_Settings and fo_Settings.selfCastEnabled then
+            return "player"
+        end
+    end
+
+    -- Return nil to prevent "Glowing Hand" cursor
+    return nil
+end
+
+
+
+
+--- [Universal Dual Logic]
+-- Decides which value to return based on the target's reaction.
+-- @param helpVal: Returned if target is friendly or nil.
+-- @param harmVal: Returned if target is an enemy.
+function fo_dualLogic(helpVal, harmVal, arg3, arg4)
+    -- Use our brain to resolve the unit
+    local unit = _GetSmartTarget(helpVal, arg3, arg4)
+
+    -- If the unit exists and can be attacked, pick the Harmful side.
+    if unit and UnitExists(unit) and UnitCanAttack("player", unit) then
+        return harmVal, unit
+    end
+
+    -- Default to the Helpful side.
+    return helpVal, unit
+end
+
+
+
+--- [Internal] Cleans spell rank for aura scanning.
+local function _GetPureName(spellName)
+    return string.gsub(spellName, "%(Rank %d+%)", "")
+end
+
+
+--- Interceptor
+fo_castFilters = {}
+function fo_registerFilter(func)
+    table.insert(fo_castFilters, func)
+end
+
+
+
+-- ==========================================================
+-- Smart cast spell with mouseover override
+-- ==========================================================
+
+--- [PRIMARY CAST INTERFACE]
+-- The main wrapper for WoW's CastSpellByName.
+-- Supports position-independent flags: fo_cast("Spell", "m") or fo_cast("Spell", nil, "s").
+function fo_cast(spellName, arg2, arg3)
+    if not spellName or spellName == "" then return end
+
+    -- [1] Filter Check: Stop execution if any registered filter returns false.
+    local lowerName = string.lower(spellName)
+    for _, filterFunc in ipairs(fo_castFilters or {}) do
+        if filterFunc(lowerName) == false then return end
+    end
+
+    -- [2] Rank Handling: Appends "()" to ensure Max Rank if no rank is specified.
+    -- Targets strings ending in ")" like "Moonfire(Rank 1)" vs "Moonfire".
+    if string.find(spellName, "[^0-9]%)$") and not string.find(spellName, "%(%)$") then
+        spellName = spellName .. "()"
+    end
+
+    -- [3] Final Target Resolution: Outsource intelligence to the core.
+    local target = _GetSmartTarget(spellName, arg2, arg3)
+
+    -- [4] Execution:
+    if target then
+        CastSpellByName(spellName, target)
+    end
+end
+
+-- Hybrid Dual Cast (Re-implemented using the Logic Engine)
+function fo_castDual(helpSpell, harmSpell, arg3, arg4)
+    local spell, unit = fo_dualLogic(helpSpell, harmSpell, arg3, arg4)
+    fo_cast(spell, unit)
+end
+
+
+-- ==========================================================
+-- Aura Checker
+-- ==========================================================
 
 --- Core logic for aura scanning using texture paths and tooltip text.
 -- @param spellName: The pure name of the spell or a texture path segment.
@@ -57,271 +226,142 @@ local function _CheckAuraByName(spellName, unit)
     return false
 end
 
---- Determines the best unit ID based on mouseover priority and spell type.
--- @param spellName: Used to determine if the spell is helpful or harmful (future proofing).
--- @param forceMouseover: If true, prioritizes mouseover even for harmful spells.
-local function _GetSmartTarget(spellName, forceMouseover)
-    -- 1. If no mouseover exists, always default to "target"
-    if not UnitExists("mouseover") then
-        return "target"
-    end
-
-    -- 2. HELPFUL Case:
-    -- If mouseover is a friend, prioritize it for buff/aura checks.
-    if UnitCanAssist("player", "mouseover") then
-        return "mouseover"
-    end
-
-    -- 3. HARMFUL Case:
-    -- If mouseover is an enemy, only prioritize it if 'forceMouseover' is true.
-    -- Otherwise, stick to "target" to avoid accidental de-targeting in combat.
-    if UnitCanAttack("player", "mouseover") then
-        if forceMouseover then
-            return "mouseover"
-        else
-            return "target"
-        end
-    end
-
-    -- Fallback to target for all other cases
-    return "target"
-end
 
 
--- ==========================================================
--- Public API (Functions to use in Macros)
--- ==========================================================
-
-
--- ==========================================================
--- Debug Tool: Show all textures on your current target
--- ==========================================================
-function fo_showTargetTexture()
-    local unit = "target"
-    if not UnitExists(unit) then
-        DEFAULT_CHAT_FRAME:AddMessage("No target selected.")
-        return
-    end
-
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ffff--- Target Buff/Debuff Textures ---|r")
-
-    local types = { "HELPFUL", "HARMFUL" }
-    for _, auraType in pairs(types) do
-        DEFAULT_CHAT_FRAME:AddMessage("|cffaaaaaa[" .. auraType .. "]|r")
-        for i = 1, 32 do
-            local texture
-            if auraType == "HELPFUL" then
-                texture = UnitBuff(unit, i)
-            else
-                texture = UnitDebuff(unit, i)
-            end
-
-            if not texture then break end
-            DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffffff00[%d]|r %s", i, texture))
-        end
-    end
-end
-
--- ==========================================================
--- Smart cast spell with mouseover override
--- ==========================================================
-
--- Interceptor
-fo_castFilters = {}
-function fo_registerFilter(func)
-    table.insert(fo_castFilters, func)
-end
-
---- Determines the final target unit based on existence and self-cast settings.
--- @param unit: The candidate unit ID (e.g., "mouseover", "target")
--- @return: Valid unit ID or nil if casting should be aborted
-local function _FinalizeTarget(unit)
-    -- 1. If a valid unit (mouseover or target) was found, use it.
-    if unit and UnitExists(unit) then
-        return unit
-    end
-
-    -- 2. If no unit exists, check for Auto Self-Cast.
-    if fo_Settings.selfCastEnabled then
-        -- Optional: Add a check here if you want to prevent self-casting
-        -- offensive spells, but usually, WoW's internal logic handles the error.
-        return "player"
-    end
-
-    -- 3. Otherwise, return nil.
-    -- This prevents the "Glowing Hand" cursor which requires a manual click.
-    return nil
-end
-
-
---- Standard cast function with mouseover priority.
---- The main casting function called by macros.
--- @param spellName: Name of the spell to cast
--- @param forceMouseover: If true, ignores target and forces mouseover if it exists
-function fo_cast(spellName, forceMouseover)
-    if not spellName or spellName == "" then return end
-    local lowerName = string.lower(spellName)
-
-    -- [1] Run all registered filters
-    -- If any filter returns false, the execution stops immediately
-    for _, filterFunc in ipairs(fo_castFilters) do
-        if filterFunc(lowerName) == false then
-            return -- Blocked by a filter
-        end
-    end
-    
-    -- [2] If it ends with [Non-digit] + ")", append "()" to ensure Max Rank cast.
-    if string.find(spellName, "[^0-9]%)$") and not string.find(spellName, "%(%)$") then
-        spellName = spellName .. "()"
-    end
-
-    -- [3] TARGET ACQUISITION
-    -- If the class handler allows the cast, we then find the best target.
-    -- (Mouseover, Target, or Self based on priority)
-    local u = _GetSmartTarget(spellName, forceMouseover)
-
-    -- [4] FINAL EXECUTION
-    -- Execute the spell on the determined target.
-    local target = _FinalizeTarget(u)
-    if target then
-        CastSpellByName(spellName, target)
-    end
-end
-
--- Dual-purpose smart cast (Helpful/Harmful auto-selection) with mouseover priority and self-cast logic.
--- helpSpell: Spell for friendly targets. Skip if "" or nil.
--- harmSpell: Spell for enemy targets. Skip if "" or nil.
--- allowHarmMouseover: Optional, defaults to false.
-function fo_smartCast(helpSpell, harmSpell, allowHarmMouseover)
-    -- Handle default value for allowHarmMouseover
-    if allowHarmMouseover == nil then allowHarmMouseover = false end
-
-    -- Helper local function to check if a spell string is valid
-    local function _isValid(s) return s and s ~= "" end
-
-    -- 1. Check Mouseover: Prioritize Help
-    if UnitExists("mouseover") then
-        if _isValid(helpSpell) and UnitCanAssist("player", "mouseover") then
-            fo_cast(helpSpell, true)
-            return
-        elseif _isValid(harmSpell) and allowHarmMouseover and UnitCanAttack("player", "mouseover") then
-            fo_cast(harmSpell, true)
-            return
-        end
-    end
-
-    -- 2. Check Target
-    if UnitExists("target") then
-        if _isValid(helpSpell) and UnitCanAssist("player", "target") then
-            fo_cast(helpSpell, false)
-            return
-        elseif _isValid(harmSpell) and UnitCanAttack("player", "target") then
-            fo_cast(harmSpell, false)
-            return
-        end
-    end
-
-    -- 3. Fallback: Self-cast Help
-    -- Only if helpSpell is provided and no hostile mouseover/target caught us
-    if _isValid(helpSpell) then
-        fo_cast(helpSpell, false)
-    end
-end
-
--- ==========================================================
--- Aura Checker
--- ==========================================================
 -- @param spellName: e.g., "Moonfire(Rank 1)" or "Moonfire"
 -- @param unit: The unit to inspect. Accepts standard WoW unit IDs such as "target", "player", "pet", "party1", or "mouseover". Defaults to "target" if omitted.
 
--- 1. Manual Target Version (User-defined unit)
-function fo_aura(spellName, unit)
+--- [Standard Interface] Smart Aura Check
+-- Matches fo_cast behavior: uses the Brain to resolve target.
+-- Usage in Macro: fo_aura("Rejuvenation", "s") -> Self
+--                 fo_aura("Moonfire", "m")     -> Mouseover/Target
+function fo_aura(spellName, arg2, arg3)
+    local u = _GetSmartTarget(spellName, arg2, arg3)
+    if not u then return false end
+    return _CheckAuraByName(_GetPureName(spellName), u)
+end
+
+--- [Direct Interface] Manual Unit ID Check
+-- For specific needs: "targettarget", "raid1", "focus", etc.
+-- This is kept separate to prevent interference with Smart Logic.
+function fo_auraUnit(spellName, unit)
     local targetUnit = unit or "target"
-    local pureName = string.gsub(spellName, "%(Rank %d+%)", "")
-    return _CheckAuraByName(pureName, targetUnit)
+    return _CheckAuraByName(_GetPureName(spellName), targetUnit)
 end
 
--- 2. Self-Only Version (Hardcoded to "player")
+--- [Shortcut Interface] Dedicated Player Check
+-- The most common check, optimized for speed and clarity.
 function fo_auraSelf(spellName)
-    local pureName = string.gsub(spellName, "%(Rank %d+%)", "")
-    return _CheckAuraByName(pureName, "player")
+    return _CheckAuraByName(_GetPureName(spellName), "player")
 end
 
--- 3. Smart Target Version (Prioritizes mouseover)
-function fo_auraSmart(spellName, forceMouseover)
-    local u = _GetSmartTarget(spellName, forceMouseover)
-    local pureName = string.gsub(spellName, "%(Rank %d+%)", "")
-    return _CheckAuraByName(pureName, u)
+
+
+
+
+-- ==========================================================
+-- RESOURCE CHECKER (Standardized & Fixed)
+-- ==========================================================
+
+-- PUBLIC FUNCTION: Returns absolute missing HP
+function fo_lifeDeficit(unitArg)
+    local unit = _GetSmartTarget(nil, unitArg) or "player"
+    if UnitExists(unit) then
+        return UnitHealthMax(unit) - UnitHealth(unit)
+    end
+    return 0
 end
 
--- ==========================================================
--- Resource CHECKER
--- ==========================================================
+-- PUBLIC FUNCTION: Returns absolute missing Power
+function fo_powerDeficit(unitArg)
+    local unit = _GetSmartTarget(nil, unitArg) or "player"
+    if UnitExists(unit) then
+        return UnitManaMax(unit) - UnitMana(unit)
+    end
+    return 0
+end
 
---- [Base/Manual] fo_RS(stat, op, val, unit)
--- @param unit: Optional (Defaults to "target")
-function fo_RS(statType, operator, threshold, unit)
-    unit = unit or "target"
-    if not UnitExists(unit) then return false end
+local function _ResourceLogic(input, arg2, arg3, unit)
+    -- 1. Initial validation
+    if not input or not unit or not UnitExists(unit) then return false end
 
-    local current, max
-    statType = string.lower(statType)
+    local stat, op, threshold
 
-    -- 1. Get stats with shorthand support
-    -- "l" = Life(HP), "p" = Power(Mana, Rage, Energy)
-    if statType == "l" or statType == "hp" or statType == "health" then
-        current = UnitHealth(unit)
+    -- 2. Parsing (Splitting "pd > 100")
+    if type(input) == "string" then
+        local _, _, s, o, v = string.find(input, "([^%s<>!=]+)%s*([<>!=]+)%s*(.*)")
+        if s and o and v then
+            stat, op, threshold = s, o, v
+        else
+            stat, op, threshold = input, arg2, arg3
+        end
+    else
+        stat, op, threshold = input, arg2, arg3
+    end
+
+    -- [CRITICAL] Safety check: If parsing failed or args are missing, stop here!
+    if not stat or not op or not threshold then return false end
+
+    -- 3. Now it is safe to normalize
+    stat = string.lower(stat)
+    local current, max = 0, 0
+
+    if stat == "ld" or stat == "hd" then
+        current = fo_lifeDeficit(unit)
         max = UnitHealthMax(unit)
-    elseif statType == "p" or statType == "mana" or statType == "rage" or statType == "energy" then
-        current = UnitMana(unit)
+    elseif stat == "pd" or stat == "md" then
+        current = fo_powerDeficit(unit)
         max = UnitManaMax(unit)
+    elseif stat == "l" or stat == "hp" then
+        current, max = UnitHealth(unit), UnitHealthMax(unit)
+    elseif stat == "p" or stat == "mana" then
+        current, max = UnitMana(unit), UnitManaMax(unit)
     else
-        return false
+        return false 
     end
 
-    -- 2. Threshold Analysis ("50%" vs 500)
-    local targetVal
-    if type(threshold) == "string" and string.find(threshold, "%%$") then
-        local p = tonumber(string.sub(threshold, 1, -2))
-        targetVal = (max * p) / 100
+    -- 4. Threshold Conversion (Handle % and tonumber)
+    local targetVal = 0
+    if type(threshold) == "string" and string.find(threshold, "%%") then
+        local num = tonumber((string.gsub(threshold, "%%", ""))) or 0
+        targetVal = (max * num) / 100
     else
-        targetVal = tonumber(threshold)
+        targetVal = tonumber(threshold) or 0
     end
 
-    if not targetVal or not current then return false end
+    -- 5. Final Comparison Logic
+    if op == ">"  then return current >  targetVal end
+    if op == "<"  then return current <  targetVal end
+    if op == ">=" then return current >= targetVal end
+    if op == "<=" then return current <= targetVal end
+    if op == "==" or op == "=" then return current == targetVal end
+    if op == "!=" or op == "~=" then return current ~= targetVal end
 
-    -- 3. Logic Comparison
-    if operator == ">" then
-        return current > targetVal
-    elseif operator == "<" then
-        return current < targetVal
-    elseif operator == ">=" then
-        return current >= targetVal
-    elseif operator == "<=" then
-        return current <= targetVal
-    elseif operator == "==" then
-        return current == targetVal
-    end
     return false
 end
 
---- [Self] fo_RSSelf(stat, op, val)
-function fo_RSSelf(stat, op, val)
-    return fo_RS(stat, op, val, "player")
+-- [Main] Smart Targeting Entry Point
+function fo_RS(input, arg2, arg3)
+    -- This correctly identifies the unit before logic starts
+    local unit = _GetSmartTarget("RSCheck", arg2, arg3)
+    return _ResourceLogic(input, arg2, arg3, unit)
 end
 
---- [Smart] fo_RSSmart(stat, op, val, force)
-function fo_RSSmart(stat, op, val, force)
-    local unit = _GetSmartTarget("RSCheck", force)
-    return fo_RS(stat, op, val, unit)
+-- [Sub] Manual Targeting Entry Point
+function fo_RSUnit(input, unit)
+    return _ResourceLogic(input, nil, nil, unit or "target")
 end
+
+
+
+
 
 -- ==========================================================
 -- Coolddown Checker
 -- ==========================================================
 -- Returns true ONLY if the spell is on a real cooldown (longer than the GCD).
 -- Useful for skipping spells that are not ready yet.
-function fo_isCD(spellName)
+function fo_CD(spellName)
     local searchName = string.lower(spellName)
     local i = 1
 
@@ -457,7 +497,6 @@ function fo_isCombat()
     return false
 end
 
-
 -- -- Casting State Detection (Does not work for Channeling) --
 local fo_currentCasting = false
 local castFrame = CreateFrame("Frame")
@@ -478,10 +517,9 @@ castFrame:SetScript("OnEvent", function()
     end
 end)
 
-function fo_isCasting() 
-    return fo_currentCasting 
+function fo_isCasting()
+    return fo_currentCasting
 end
-
 
 -- Returns true if the player is Stealthed or Shadowmelded.
 -- Uses both name and texture checks for maximum reliability in Vanilla 1.12.
@@ -597,9 +635,146 @@ function fo_break()
 end
 
 
+
+-- ==========================================================
+-- GENERIC ITEM UTILITY
+-- ==========================================================
+
+-- Internal helper: Scans a list and uses the first available item found in bags
+local function _fo_ScanAndUseItem(list, categoryLabel)
+    for _, name in ipairs(list) do
+        if fo_GetItemCount(name) > 0 then
+            UseItemByName(name)
+            return true -- Successfully used an item
+        end
+    end
+    -- Optional: Logging can remain generic
+    -- DEFAULT_CHAT_FRAME:AddMessage("No items available in category: " .. (categoryLabel or "Unknown"))
+    return false -- Nothing found
+end
+
+
+--- Checks the total count of an item by name in all bags.
+function fo_GetItemCount(targetName)
+    local count = 0
+    for bag = 0, 4 do
+        for slot = 1, GetContainerNumSlots(bag) do
+            local link = GetContainerItemLink(bag, slot)
+            if link then
+                -- Extract item name from the link: "|c...[Item Name]|h..."
+                local _, _, name = string.find(link, "%[(.*)%]")
+                if name == targetName then
+                    local _, stackCount = GetContainerItemInfo(bag, slot)
+                    count = count + (stackCount or 0)
+                end
+            end
+        end
+    end
+    return count
+end
+
+
+
+
+
+
+-- PUBLIC API: Check if an item is ready to use
+-- Works for both equipped items and items in bags
+function fo_itemCD(name)
+    if not name or name == "" then return false end
+    local target = string.lower(name)
+
+    -- 1. Scan Equipment Slots (1-19)
+    for slot = 1, 19 do
+        local link = GetInventoryItemLink("player", slot)
+        if link and string.find(string.lower(link), target) then
+            local start, duration, enable = GetInventoryItemCooldown("player", slot)
+            return (start == 0 or duration == 0)
+        end
+    end
+
+    -- 2. Scan Bags (0-4)
+    for bag = 0, 4 do
+        for slot = 1, GetContainerNumSlots(bag) do
+            local link = GetContainerItemLink(bag, slot)
+            if link and string.find(string.lower(link), target) then
+                local start, duration, enable = GetContainerItemCooldown(bag, slot)
+                return (start == 0 or duration == 0)
+            end
+        end
+    end
+
+    return false -- Item not found
+end
+
+-- PUBLIC API: Use item by name with smart CD checking and user feedback
+function fo_item(name)
+    if not name or name == "" then return false end
+    local target = string.lower(name)
+    local foundLink = nil
+    local isEquipped = false
+    local bagID, slotID = nil, nil
+
+    -- 1. Search for the item and identify its location
+    for slot = 1, 19 do
+        local link = GetInventoryItemLink("player", slot)
+        if link and string.find(string.lower(link), target) then
+            foundLink = link
+            isEquipped = true
+            slotID = slot
+            break
+        end
+    end
+
+    if not foundLink then
+        for bag = 0, 4 do
+            for slot = 1, GetContainerNumSlots(bag) do
+                local link = GetContainerItemLink(bag, slot)
+                if link and string.find(string.lower(link), target) then
+                    foundLink = link
+                    bagID = bag
+                    slotID = slot
+                    break
+                end
+            end
+            if foundLink then break end
+        end
+    end
+
+    -- 2. Feedback: Item not found in bags or equipment
+    if not foundLink then
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[fo]|r Item not found: " .. name)
+        return false
+    end
+
+    -- 3. Feedback: Item is on cooldown
+    -- We use fo_itemCD logic here to prevent server-side spam
+    if not fo_itemCD(name) then
+        UIErrorsFrame:AddMessage(name .. " is not ready yet.", 1.0, 1.0, 0.0)
+        return false
+    end
+
+    -- 4. Execution: Use the item
+    -- Only reached if item exists and CD is ready
+    if isEquipped then
+        UseInventoryItem(slotID)
+    else
+        UseContainerItem(bagID, slotID)
+    end
+
+    return true
+end
+
+
+
+
+
+
+
+
 -- Automatically finds and uses the highest priority bandage in your bags.
--- Prioritizes Custom/BG bandages over standard ones.
-function fo_smartBandage()
+function fo_bandage(targetArg) -- [FIX] Added targetArg here
+    -- Priority list of bandages
     local bandages = {
         "Crystal Infused Bandage",
         "Alterac Heavy Runecloth Bandage",
@@ -625,25 +800,7 @@ function fo_smartBandage()
         "Linen Bandage"
     }
 
-    local function fo_GetItemCount(targetName)
-    local count = 0
-    for bag = 0, 4 do
-        for slot = 1, GetContainerNumSlots(bag) do
-            local link = GetContainerItemLink(bag, slot)
-            if link then
-                -- Extract item name from the link: "|c...[Item Name]|h..."
-                local _, _, name = string.find(link, "%[(.*)%]")
-                if name == targetName then
-                    local _, stackCount = GetContainerItemInfo(bag, slot)
-                    count = count + (stackCount or 0)
-                end
-            end
-        end
-    end
-    return count
-end
-
--- 1. Scan bags using the 1.12 helper
+    -- 1. Scan bags for the best available bandage
     local targetBandage = nil
     for _, name in ipairs(bandages) do
         if fo_GetItemCount(name) > 0 then
@@ -657,31 +814,72 @@ end
         return
     end
 
-    -- 2. Target Acquisition
-    local u = _GetSmartTarget(targetBandage, false)
-    local targetUnit = _FinalizeTarget(u)
+    -- 2. Target Normalization (Fixed logic)
+    local unit
+    local t = string.lower(tostring(targetArg or ""))
+    
+    if t == "s" or t == "self" or t == "player" then
+        unit = "player"
+    elseif targetArg and targetArg ~= "" then
+        unit = targetArg
+    else
+        -- [FIX] Updated to match the new _GetSmartTarget(mode, arg1, arg2) signature
+        -- Passing nil for mode as it's a standard cast, not an RSCheck
+        unit = _GetSmartTarget(nil, targetArg)
+    end
 
-    -- 3. Execution (Target Swap Method)
-    if targetUnit then
-        -- Target Swap Logic
+    -- 3. Execution using Target Swap Method
+    if UnitExists(unit) then
+        -- Prevent using bandage on someone who already has "Recently Bandaged" debuff
+        -- (Optional logic can be added here)
+        
         local currentTargetExists = UnitExists("target")
-        local isTargetingSelf = UnitIsUnit("target", "player")
+        local isSelf = UnitIsUnit("player", unit)
 
-        -- Swap target if necessary
-        if not UnitIsUnit("target", targetUnit) then
-            TargetUnit(targetUnit)
+        if not UnitIsUnit("target", unit) then
+            TargetUnit(unit)
             UseItemByName(targetBandage)
-            
-            if currentTargetExists then
-                TargetLastTarget()
-            else
-                ClearTarget()
+            if currentTargetExists then 
+                TargetLastTarget() 
+            else 
+                ClearTarget() 
             end
         else
             UseItemByName(targetBandage)
         end
     end
 end
+
+
+
+-- Use best Health Potion
+function fo_healthPot()
+    local list = {
+        "Major Health Potion",
+        "Combat Health Potion",
+        "Superior Health Potion",
+        "Greater Health Potion",
+        "Health Potion",
+        "Lesser Health Potion",
+        "Minor Health Potion"
+    }
+    return _fo_ScanAndUseItem(list, "Health Potion")
+end
+
+-- Use best Mana Potion
+function fo_manaPot()
+    local list = {
+        "Major Mana Potion",
+        "Combat Mana Potion",
+        "Superior Mana Potion",
+        "Greater Mana Potion",
+        "Mana Potion",
+        "Lesser Mana Potion",
+        "Minor Mana Potion"
+    }
+    return _fo_ScanAndUseItem(list, "Mana Potion")
+end
+
 
 
 
