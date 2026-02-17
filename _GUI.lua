@@ -265,7 +265,7 @@ AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_showTargetTexture()", "Show all te
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_RS('p>80%')", "Resource Checker l=life, p=power")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_RS('ld>1000', 's')", "ld = life deficit, pd = power deficit")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_CD('Swiftmend')", "Cooldown Checker (Self only)")
-AddApiAuto(GlobalPanel, "GLOBAL", "fo_itemCD("name")", "Item Cooldown Checker (Self only)")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_itemCD('name')", "Item Cooldown Checker (Self only)")
 
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_startAttack()", "Spammable auto attack")
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_startShoot()", "Shoots ALL ranged weapon")
@@ -274,7 +274,7 @@ AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_break()", "Stpos all (BUT CHANNELI
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_bandage()", "Highest bandage on smart target")
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_healthPot()", "Drink highest health potion")
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_manaPot()", "Drink highest mana potion")
-AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_item("name")", "Uses the item by name.")
+AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_item('name')", "Uses the item by name.")
 
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_has2H()", "True if 2H equipped (Self Only)")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasShield()", "Returns true if Shield equipped")
