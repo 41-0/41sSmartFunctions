@@ -281,7 +281,7 @@ AddApiAuto(GlobalPanel, "GLOBAL", "fo_isShooting()", "Returns true if shooting")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_isCasting()", "Returns true if Casting")
 
 
-AddApiAuto(GlobalPanel, "GLOBAL", "https://github.com/41-0/41sFunctions", "GitHub URL")
+AddApiAuto(GlobalPanel, "GLOBAL", "https://github.com/41-0/41sSmartFunctions", "GitHub URL")
 
 
 
