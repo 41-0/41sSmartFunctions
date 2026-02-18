@@ -625,3 +625,61 @@ end
 function fo_RSUnit(input, unit)
     return _ResourceLogic(input, nil, nil, unit or "target")
 end
+
+
+
+
+
+
+function fo_Druid_SmartHeal(spellName, myMaxHeal, arg2, stopThreshold)
+    -- [1] 引数整理
+    if type(arg2) == "number" then
+        stopThreshold = arg2
+        arg2 = nil
+    end
+
+    local unit = fo_getSmartTarget(spellName, arg2)
+    if not unit then 
+        -- ターゲットを見失った場合も、念のため詠唱中なら止める
+        if CastingBarFrame and CastingBarFrame.casting then SpellStopCasting() end
+        return 
+    end
+
+    -- [2] 重要：現在詠唱中かどうかのチェック (バニラAPI: UnitCastingInfo)
+    -- UnitCastingInfo はバニラの後半で実装されたため、
+    -- CastingBarFrame.casting を見るのが確実です。
+    local isCasting = CastingBarFrame.casting or (CastingBarFrame.channeling)
+
+    local curHP = UnitHealth(unit)
+    local maxHP = UnitHealthMax(unit)
+    local ld = maxHP - curHP
+
+    -- [3] 強制中断判定 (詠唱中であっても、満タンなら SpellStopCasting を叩き込む)
+    if curHP >= maxHP or (ld < (myMaxHeal * (stopThreshold or 0.1))) then
+        if isCasting then
+            SpellStopCasting()
+            -- DEFAULT_CHAT_FRAME:AddMessage("Overheal Cancelled!") -- 確認用
+        end
+        -- 詠唱していなくても、新しく始めないように return
+        return 
+    end
+
+    -- [4] ここから下は「ヒールが必要」と判断された場合のみ
+    -- 既に詠唱中なら、二重に撃たないように return
+    if isCasting then return end
+
+    local maxRank = fo_getMaxRank(spellName)
+    local rank = fo_CalculateRank(ld, myMaxHeal, maxRank, stopThreshold)
+
+    if rank and rank > 0 then
+        -- Regrowth ロジック
+        if string.lower(spellName) == "regrowth" then
+            if _Druid_MaintainRejuvenation(unit) then return end
+        end
+        -- 実行
+        fo_ExecuteCast(unit, spellName, rank)
+    end
+end
+
+
+

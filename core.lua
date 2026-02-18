@@ -109,7 +109,9 @@ local function _GetSmartTarget(spellName, arg2, arg3)
     -- Return nil to prevent "Glowing Hand" cursor
     return nil
 end
-
+function fo_getSmartTarget(spellName, arg2, arg3)
+    return _GetSmartTarget(spellName, arg2, arg3)
+end
 
 
 
@@ -640,20 +642,6 @@ end
 -- GENERIC ITEM UTILITY
 -- ==========================================================
 
--- Internal helper: Scans a list and uses the first available item found in bags
-local function _fo_ScanAndUseItem(list, categoryLabel)
-    for _, name in ipairs(list) do
-        if fo_GetItemCount(name) > 0 then
-            UseItemByName(name)
-            return true -- Successfully used an item
-        end
-    end
-    -- Optional: Logging can remain generic
-    -- DEFAULT_CHAT_FRAME:AddMessage("No items available in category: " .. (categoryLabel or "Unknown"))
-    return false -- Nothing found
-end
-
-
 --- Checks the total count of an item by name in all bags.
 function fo_GetItemCount(targetName)
     local count = 0
@@ -672,6 +660,30 @@ function fo_GetItemCount(targetName)
     end
     return count
 end
+
+
+-- Internal helper: Scans a list and uses the first available item found in bags
+local function _fo_ScanAndUseItem(list, categoryLabel)
+    for _, name in ipairs(list) do
+        -- Scan bags (0 to 4)
+        for bag = 0, 4 do
+            for slot = 1, GetContainerNumSlots(bag) do
+                local link = GetContainerItemLink(bag, slot)
+                -- Check if the item in this slot matches the name in the list
+                if link and string.find(link, name) then
+                    UseContainerItem(bag, slot)
+                    -- Optional logging
+                    -- DEFAULT_CHAT_FRAME:AddMessage("Used: " .. name .. " (" .. (categoryLabel or "Item") .. ")")
+                    return true 
+                end
+            end
+        end
+    end
+    return false 
+end
+
+
+
 
 
 
@@ -855,13 +867,13 @@ end
 -- Use best Health Potion
 function fo_healthPot()
     local list = {
-        "Major Health Potion",
-        "Combat Health Potion",
-        "Superior Health Potion",
-        "Greater Health Potion",
-        "Health Potion",
-        "Lesser Health Potion",
-        "Minor Health Potion"
+        "Major Healing Potion",
+        "Combat Healing Potion",
+        "Superior Healing Potion",
+        "Greater Healing Potion",
+        "Healing Potion",
+        "Lesser Healing Potion",
+        "Minor Healing Potion"
     }
     return _fo_ScanAndUseItem(list, "Health Potion")
 end
@@ -1016,6 +1028,134 @@ local function ExecuteTauntAnnounce(combatLogMsg)
         end
     end
 end
+
+
+
+
+
+
+
+-- ==========================================================
+-- 41's Smart Functions: Modular Healing Engine
+-- ==========================================================
+
+-- ==========================================================
+-- core.lua: Base Engine for Smart Functions
+-- ==========================================================
+
+-- [2] Optimal Rank Calculator
+-- Calculates the most efficient spell rank based on HP deficit ratio
+-- @param stopThreshold: Percentage of maxHeal to trigger fo_break (e.g., 0.3 = 30%)
+
+function fo_CalculateRank(ld, maxHeal, maxRank, stopThreshold)
+    -- If no threshold, default to a very safe 10%
+    local threshold = stopThreshold or 0.1
+    
+    -- [ENHANCED SAFETY] 
+    -- If deficit is less than 1% of Max HP, OR less than the threshold of maxHeal
+    -- We force a stop. This kills "99% HP" ghost deficits.
+    if ld < 5 or ld <= (maxHeal * threshold) then 
+        return 0 
+    end
+    
+    local ratio = ld / maxHeal
+    if ratio <= 0 then return 0 end
+
+    if ratio >= 0.85 then return maxRank end
+    if ratio <= 0.15 then return 1 end
+    
+    local targetRank = math.ceil((ratio + 0.05) * maxRank)
+    return math.max(1, math.min(targetRank, maxRank))
+end
+
+
+
+
+-- [3] Smart Dispatcher
+-- Handles spell execution with temporary targeting for mouseover support
+function fo_ExecuteCast(unit, spellName, rank)
+    -- If somehow rank 0 reached here, FORCE BREAK
+    if not rank or rank <= 0 then
+        if fo_break then fo_break() end
+        return
+    end
+
+    local fullSpell = spellName .. "(Rank " .. rank .. ")"
+    
+    -- Target Swap Logic
+    if unit == "mouseover" and not UnitIsUnit("mouseover", "target") then
+        TargetUnit("mouseover")
+        fo_cast(fullSpell)
+        TargetLastTarget()
+    else
+        fo_cast(fullSpell)
+    end
+end
+
+
+-- [4] Max Rank Finder
+-- Scans the player's spellbook to find the highest available rank of a spell
+function fo_getMaxRank(spellName)
+    local targetName = string.lower(spellName)
+    local maxRank = 0
+    local i = 1
+    while true do
+        local name, rank = GetSpellName(i, "spell")
+        if not name then break end
+        if string.lower(name) == targetName then
+            -- Extract numeric value from rank string (e.g., "Rank 5" -> 5)
+            local _, _, rankNumber = string.find(rank, "(%d+)")
+            if rankNumber then maxRank = tonumber(rankNumber) end
+        end
+        i = i + 1
+    end
+    return maxRank > 0 and maxRank or 1
+end
+
+-- ==========================================================
+-- Main Entry Point: fo_smartHeal
+-- ==========================================================
+-- Global router to direct healing logic based on player class.
+-- @param spellName: e.g., "Regrowth", "Flash Heal", "Holy Light"
+-- @param myMaxHeal: Estimated healing of the highest rank
+-- @param arg2: Optional flag ("s" for self, "m" for mouseover-hostile, etc.)
+function fo_smartHeal(spellName, myMaxHeal, arg2, stopThreshold)
+    -- Argument Swap Logic:
+    -- If arg2 is a number, assume the user skipped 'target mode' 
+    -- and wants to set the threshold directly.
+    if type(arg2) == "number" then
+        stopThreshold = arg2
+        arg2 = nil -- Reset arg2 to default targeting
+    end
+
+    local unit = fo_getSmartTarget(spellName, arg2)
+    if not unit then return end
+
+    local _, class = UnitClass("player")
+    if class == "DRUID" then
+        fo_Druid_SmartHeal(spellName, myMaxHeal, arg2, stopThreshold)
+    else
+        -- Fallback logic
+        local ld = UnitHealthMax(unit) - UnitHealth(unit)
+        local maxRank = fo_getMaxRank(spellName)
+        local rank = fo_CalculateRank(ld, myMaxHeal, maxRank, stopThreshold)
+        
+        if rank > 0 then
+            fo_ExecuteCast(unit, spellName, rank)
+        else
+            if fo_break then fo_break() end
+        end
+    end
+end
+
+
+
+
+
+
+
+
+
 
 
 
