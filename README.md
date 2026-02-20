@@ -224,7 +224,7 @@ This module provides a unified interface for using items, whether they are consu
 | Function | Description |
 | --- | --- |
 | `fo_item("name")` | **The Universal Item Tool.** Scans equipment slots first, then bags. It includes a built-in safety check to prevent "Not Ready" spam if the item is on cooldown. |
-| `fo_itemCD("name")` | A utility function that returns `true` if the specified item (equipped or in bags) is ready for use. |
+| `fo_itemCD("name")` | A utility function that returns `true` if the specified item (equipped or in bags) is on Cooldown. |
 
 `fo_item` mimics the standard "Right-Click" behavior of your inventory
 

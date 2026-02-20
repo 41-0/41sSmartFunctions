@@ -778,7 +778,7 @@ function fo_itemCD(name)
         local link = GetInventoryItemLink("player", slot)
         if link and string.find(string.lower(link), target) then
             local start, duration, enable = GetInventoryItemCooldown("player", slot)
-            return (start == 0 or duration == 0)
+            return (start > 0 and duration > 0)
         end
     end
 
@@ -788,7 +788,7 @@ function fo_itemCD(name)
             local link = GetContainerItemLink(bag, slot)
             if link and string.find(string.lower(link), target) then
                 local start, duration, enable = GetContainerItemCooldown(bag, slot)
-                return (start == 0 or duration == 0)
+                return (start > 0 and duration > 0)
             end
         end
     end
@@ -838,7 +838,7 @@ function fo_item(name)
 
     -- 3. Feedback: Item is on cooldown
     -- We use fo_itemCD logic here to prevent server-side spam
-    if not fo_itemCD(name) then
+    if fo_itemCD(name) then
         UIErrorsFrame:AddMessage(name .. " is not ready yet.", 1.0, 1.0, 0.0)
         return false
     end
