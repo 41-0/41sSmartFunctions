@@ -149,6 +149,22 @@ Stops your casting (not channeling), auto attack, shoot.
 /script fo_cast('counterspell', 1)
 ```
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <BR>
 
 ### 5. Taunt Resist Announcements
@@ -163,6 +179,38 @@ Automatically notifies your group when your taunt-related abilities are resisted
 * **Shaman**: Earthshaker Slam
 
 * **Toggle**: Can be enabled or disabled via the **General** tab in the settings menu.
+
+<BR>
+
+### 6. Smart Healing Engine (Experimental, not optimal)
+
+The `fo_autoRankDual` function acts as an intelligent abstraction layer for your healing rotation. Instead of manually checking health levels and calculating ranks in your main macros, this function dynamically evaluates the current combat state and constructs the appropriate spell command.
+
+#### ### How it works
+
+```lua
+/script fo_autoRankDual(helpSpell, harmSpell)
+-- Defaults: Ranks 3/5/Max, Thresholds 25%/50%
+```
+
+Full syntax:
+
+`fo_autoRankDual(helpSpell, harmSpell, lowHelpRank, midHelpRank, highHelpRank, lowThreshold, midThreshold)`
+
+#### ### Usage Example
+
+```lua
+--If target does not have Rejuvenation, cast it depending on its health.
+/script if not fo_aura('rejuvenation') then fo_autoRankDual("rejuvenation", "insect swarm", 3, 5, "max", "30%", "60%")
+```
+
+
+```lua
+-- Custom thresholds: 
+-- Ranks 3/5/Max used at 30% and 60% Life Deficit.
+-- NOTE: Accepts strings (e.g., "30%") or raw numbers (e.g., 1000).
+/script fo_autoRankDual("Healing Touch", "Wrath", 3, 5, "max", "30%", "60%")
+```
 
 
 <BR><BR>
@@ -197,7 +245,7 @@ Automatically scans your bags and uses the **highest-tier** potion available.
 
 Prioritizes using the best bandage in your inventory.
 
-* **Smart Check**: Automatically prevents usage if the "Recently Bandaged" debuff is active, saving your resources.
+* **Smart Target**: Follows Smart Targeting System.
 * **Priority**: Heavy Runecloth → Runecloth → Heavy Mageweave, etc.
 
 ---

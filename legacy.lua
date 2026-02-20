@@ -631,55 +631,309 @@ end
 
 
 
-function fo_Druid_SmartHeal(spellName, myMaxHeal, arg2, stopThreshold)
-    -- [1] 引数整理
-    if type(arg2) == "number" then
-        stopThreshold = arg2
-        arg2 = nil
+
+--- [Universal Dual Logic]
+-- Decides which value to return based on the target's reaction.
+-- @param helpVal: Returned if target is friendly or nil.
+-- @param harmVal: Returned if target is an enemy.
+function fo_dualLogic(helpVal, harmVal, arg3, arg4)
+    -- Use our brain to resolve the unit
+    local unit = _GetSmartTarget(helpVal, arg3, arg4)
+
+    -- If the unit exists and can be attacked, pick the Harmful side.
+    if unit and UnitExists(unit) and UnitCanAttack("player", unit) then
+        return harmVal, unit
     end
 
-    local unit = fo_getSmartTarget(spellName, arg2)
-    if not unit then 
-        -- ターゲットを見失った場合も、念のため詠唱中なら止める
-        if CastingBarFrame and CastingBarFrame.casting then SpellStopCasting() end
-        return 
-    end
+    -- Default to the Helpful side.
+    return helpVal, unit
+end
 
-    -- [2] 重要：現在詠唱中かどうかのチェック (バニラAPI: UnitCastingInfo)
-    -- UnitCastingInfo はバニラの後半で実装されたため、
-    -- CastingBarFrame.casting を見るのが確実です。
-    local isCasting = CastingBarFrame.casting or (CastingBarFrame.channeling)
 
-    local curHP = UnitHealth(unit)
-    local maxHP = UnitHealthMax(unit)
-    local ld = maxHP - curHP
 
-    -- [3] 強制中断判定 (詠唱中であっても、満タンなら SpellStopCasting を叩き込む)
-    if curHP >= maxHP or (ld < (myMaxHeal * (stopThreshold or 0.1))) then
-        if isCasting then
-            SpellStopCasting()
-            -- DEFAULT_CHAT_FRAME:AddMessage("Overheal Cancelled!") -- 確認用
+
+
+
+
+
+
+
+
+
+
+function fo_cast(spellName, ...)
+    if not spellName or spellName == "" then return end
+
+    local pccOption = nil
+    local targetArg = nil
+
+    -- [1] Argument Scanning
+    -- Iterate through all provided arguments to identify PCC and Target flags
+    for i = 1, arg.n do
+        local val = arg[i]
+        if type(val) == "string" then
+            local lowerVal = string.lower(val)
+            
+            if string.find(lowerVal, "^pcc") then
+                -- Identify PCC string (e.g., "pcc0.5s")
+                pccOption = val
+            elseif lowerVal == "s" or lowerVal == "self" or 
+                   lowerVal == "m" or lowerVal == "mo" or 
+                   lowerVal == "d" or lowerVal == "no-self" then
+                -- Identify Target Flags
+                targetArg = val
+            elseif not targetArg then
+                -- If it's not a flag or PCC, treat it as a potential UnitID (e.g., "party1")
+                -- Only assign if targetArg hasn't been set by a higher priority flag
+                targetArg = val
+            end
         end
-        -- 詠唱していなくても、新しく始めないように return
-        return 
     end
 
-    -- [4] ここから下は「ヒールが必要」と判断された場合のみ
-    -- 既に詠唱中なら、二重に撃たないように return
-    if isCasting then return end
+    -- [2] Resolve Target Unit
+    -- Passing the identified flag or UnitID to the smart targeting engine
+    local targetUnit = _GetSmartTarget(spellName, targetArg)
 
-    local maxRank = fo_getMaxRank(spellName)
-    local rank = fo_CalculateRank(ld, myMaxHeal, maxRank, stopThreshold)
-
-    if rank and rank > 0 then
-        -- Regrowth ロジック
-        if string.lower(spellName) == "regrowth" then
-            if _Druid_MaintainRejuvenation(unit) then return end
+    -- [3] Precast Canceller Logic
+    if pccOption then
+        -- HandlePCC now uses the resolved unit for health checks
+        if _HandlePCC(spellName, pccOption, targetUnit) then
+            return -- Abort if the cancel condition is met
         end
-        -- 実行
-        fo_ExecuteCast(unit, spellName, rank)
+    end
+
+    -- [4] Normal Cast Execution
+    local lowerName = string.lower(spellName)
+    
+    -- Filter Check
+    for _, filterFunc in ipairs(fo_castFilters or {}) do
+        if filterFunc(lowerName) == false then return end
+    end
+
+    -- Append parentheses for Max Rank if necessary
+    if string.find(spellName, "[^0-9]%)$") and not string.find(spellName, "%(%)$") then
+        spellName = spellName .. "()"
+    end
+
+    -- Final Spell Execution
+    if targetUnit then
+        CastSpellByName(spellName, targetUnit)
     end
 end
 
+
+
+
+
+
+
+
+
+local function _GetSmartTarget(spellName, arg2, arg3)
+    -- Normalize the primary targeting argument (arg2)
+    local f = string.lower(tostring(arg2 or ""))
+    
+    local isSelf         = (f == "s" or f == "self")
+    local isSmartHostile = (f == "m" or f == "mo")
+    local isDisableSelf  = (f == "d" or f == "no-self")
+
+    -- 1. Explicit Force Self ("s" flag)
+    if isSelf then return "player" end
+
+    -- 2. Fixed UnitID Override
+    -- Use directly if it's a specific UnitID (e.g., "party1", "targettarget", "mouseover")
+    if arg2 and arg2 ~= "" and not (isSmartHostile or isDisableSelf) then
+        return arg2
+    end
+
+    -- 3. Mouseover Logic
+    if UnitExists("mouseover") then
+        -- Priority: Friendly mouseover for helpful spells
+        if UnitCanAssist("player", "mouseover") then
+            return "mouseover"
+        end
+        -- Hostile mouseover: Enabled only with "m" flag
+        if UnitCanAttack("player", "mouseover") and isSmartHostile then
+            return "mouseover"
+        end
+    end
+
+    -- 4. Target Logic
+    if UnitExists("target") then
+        return "target"
+    end
+
+    -- 5. Fallback Logic (Self-Cast)
+    -- Must pass two checks:
+    -- A) The macro does NOT have the "d" (disable) flag.
+    -- B) The Global Setting "selfCastEnabled" is TRUE.
+    if not isDisableSelf then
+        if fo_Settings and fo_Settings.selfCastEnabled then
+            return "player"
+        end
+    end
+
+    -- Return nil to prevent "Glowing Hand" cursor
+    return nil
+end
+
+
+
+
+
+
+
+
+
+
+-- ==========================================================
+-- EVENT HANDLER FOR DATA LOADING
+-- ==========================================================
+
+local f = CreateFrame("Frame")
+-- Register Initialization Event
+f:RegisterEvent("VARIABLES_LOADED")
+-- Register Combat Log Events
+f:RegisterEvent("CHAT_MSG_SPELL_SELF_BUFF")
+f:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
+
+
+f:SetScript("OnEvent", function()
+    -- CASE 1: Settings Initialization
+    if event == "VARIABLES_LOADED" then
+        fo_Settings = fo_Settings or {}
+        if fo_DefaultSettings then
+            for key, value in pairs(fo_DefaultSettings) do
+                if type(value) == "table" then
+                    fo_Settings[key] = fo_Settings[key] or {}
+                    for subKey, subValue in pairs(value) do
+                        if fo_Settings[key][subKey] == nil then
+                            fo_Settings[key][subKey] = subValue
+                        end
+                    end
+                elseif fo_Settings[key] == nil then
+                    fo_Settings[key] = value
+                end
+            end
+        end
+        -- Optional: Update GUI checkbox state here after settings load
+        return -- Exit after initialization
+    end
+
+    -- CASE 2: Combat Log Monitoring (Taunt Announcer)
+    -- We only monitor SELF_DAMAGE for taunt resists/misses
+    if event == "CHAT_MSG_SPELL_SELF_DAMAGE" then
+        if fo_Settings and fo_Settings.announceTauntResist and fo_Settings.tauntSpells then
+            -- Note: ExecuteTauntAnnounce internally loops through fo_Settings.tauntSpells
+            ExecuteTauntAnnounce(arg1)
+        end
+    end
+end)
+
+
+
+
+
+
+
+
+
+
+
+-- ==========================================================
+-- PRECAST CANCELLER (PCC) LOGIC
+-- ==========================================================
+fo_castState = {
+    isCasting = false,
+    startTime = 0,
+    duration = 0,
+}
+-- Helper: Extract PCC Option from arg table
+local function _ExtractPCCOption(args)
+    local n = (args and table.getn(args)) or 0
+    for i = 1, n do
+        local v = args[i]
+        if type(v) == "string" and string.find(string.lower(v), "^pcc") then
+            return v
+        end
+    end
+    return nil
+end
+
+-- Parses the "pcc" option string to extract numeric constraints.
+-- Supports formats like "pcc0.9s50%100" (Time, Percent, Raw Deficit).
+local function _ParsePCC(str)
+    local lStr = string.lower(str or "")
+    local t, p, r = 1.0, 7, 99999 -- Default: 1s remaining, 7% deficit
+
+    -- In Lua 5.0 (Vanilla), string.match is unavailable.
+    -- We use string.find's 3rd return value to capture patterns.
+    local _, _, valT = string.find(lStr, "([0-9.]+)s")
+    if valT then t = tonumber(valT) or t end
+
+    local _, _, valP = string.find(lStr, "([0-9.]+)%%")
+    if valP then p = tonumber(valP) or p end
+
+    -- Extract raw deficit by stripping pcc/s/% and finding the remaining number.
+    local temp = string.gsub(lStr, "pcc", "")
+    temp = string.gsub(temp, "[0-9.]+s", "")
+    temp = string.gsub(temp, "[0-9.]+%%", "")
+    local _, _, valR = string.find(temp, "(%d+)")
+    if valR then r = tonumber(valR) or r end
+
+    return t, p, r
+end
+
+
+-- Main Logic for interrupting helpful spells
+-- Handle the Pre-emptive Cancel Cast (PCC) logic based on elapsed time and health thresholds
+local function _HandlePCC(spellName, pccOption, unit)
+    -- DEBUG: Add this line to see if the function is even triggered
+    DEFAULT_CHAT_FRAME:AddMessage("PCC: _HandlePCC called!")
+
+    if not fo_castState.isCasting then 
+        DEFAULT_CHAT_FRAME:AddMessage("PCC: Not casting, aborting.")
+        return false 
+    end
+    -- Exit if not currently casting or if interruption has already been triggered
+    if not fo_castState.isCasting or fo_castState.alreadyStopped then 
+        return false 
+    end
+
+    -- Parse user configuration (e.g., "pcc1.2s7%500") or use defaults
+    local tLimit, pLimit, rLimit = _ParsePCC(pccOption)
+    
+    -- Calculate how long the current spell has been casting
+    local elapsed = GetTime() - fo_castState.startTime
+    
+    -- Only proceed if the elapsed time exceeds the user-defined threshold
+    if elapsed >= tLimit then
+        -- Validate resource condition (Health deficit percentage or raw value)
+        -- ResourceLogic returns true if the target health deficit is within specified limits
+        local isSafePct = _ResourceLogic("hd <= " .. pLimit .. "%", nil, nil, unit)
+        local isSafeRaw = _ResourceLogic("hd <= " .. rLimit, nil, nil, unit)
+
+        -- If target health criteria are met, stop the cast to save resources/time
+        if isSafePct or isSafeRaw then
+            SpellStopCasting()
+
+            if CastingBarFrame then
+                CastingBarFrame:Hide()
+                CastingBarFrame.casting = nil
+                CastingBarFrame.value = 0
+            end
+
+            fo_castState.alreadyStopped = true -- Prevent redundant interrupt calls
+            
+            -- Optional feedback to the user
+            -- if DEFAULT_CHAT_FRAME then
+            --     DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[PCC]|r Stopped: Target Safe (" .. string.format("%.2f", elapsed) .. "s elapsed)")
+            -- end
+            return true
+        end
+    end
+    
+    return false
+end
 
 

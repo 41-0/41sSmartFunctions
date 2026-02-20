@@ -61,82 +61,108 @@ end
 -- The "Brain" of the system. Centralizes all targeting decisions into one place.
 -- It normalizes position-independent arguments (arg2, arg3) into logic flags.
 -- Priority: ForceSelf > Mouseover (Helpful > Harmful w/ Flag) > Target > Auto-Self Setting.
+-- ==========================================================
+-- SMART TARGETING ENGINE (Refined)
+-- ==========================================================
+local function _GetSmartTarget(spellName, ...)
+    local flags = {
+        isSelf = false,
+        isSmartHostile = false,
+        isDisableSelf = false,
+        unitID = nil
+    }
 
-local function _GetSmartTarget(spellName, arg2, arg3)
-    -- Normalize the primary targeting argument (arg2)
-    local f = string.lower(tostring(arg2 or ""))
-    
-    local isSelf         = (f == "s" or f == "self")
-    local isSmartHostile = (f == "m" or f == "mo")
-    local isDisableSelf  = (f == "d" or f == "no-self")
-
-    -- 1. Explicit Force Self ("s" flag)
-    if isSelf then return "player" end
-
-    -- 2. Fixed UnitID Override
-    -- Use directly if it's a specific UnitID (e.g., "party1", "targettarget", "mouseover")
-    if arg2 and arg2 ~= "" and not (isSmartHostile or isDisableSelf) then
-        return arg2
+    -- Standardize input from variable args or table relay
+    local argsToProcess = arg
+    if type(arg[1]) == "table" then
+        argsToProcess = arg[1]
     end
 
-    -- 3. Mouseover Logic
+    local n = argsToProcess.n or table.getn(argsToProcess)
+    for i = 1, n do
+        local v = argsToProcess[i]
+        if type(v) == "string" then
+            local l = string.lower(v)
+            -- 1. Scan for known flags
+            if l == "s" or l == "self" then
+                flags.isSelf = true
+            elseif l == "m" or l == "mo" then
+                flags.isSmartHostile = true
+            elseif l == "d" or l == "no-self" then
+                flags.isDisableSelf = true
+                -- 2. Ignore PCC and empty strings, treat rest as UnitID
+            elseif v ~= "" and not string.find(l, "^pcc") then
+                flags.unitID = v
+            end
+        end
+    end
+
+    -- Priority-based unit resolution
+    if flags.isSelf then return "player" end
+    if flags.unitID then return flags.unitID end
+
     if UnitExists("mouseover") then
-        -- Priority: Friendly mouseover for helpful spells
-        if UnitCanAssist("player", "mouseover") then
-            return "mouseover"
-        end
-        -- Hostile mouseover: Enabled only with "m" flag
-        if UnitCanAttack("player", "mouseover") and isSmartHostile then
+        if UnitCanAssist("player", "mouseover") then return "mouseover" end
+        if flags.isSmartHostile and UnitCanAttack("player", "mouseover") then
             return "mouseover"
         end
     end
 
-    -- 4. Target Logic
-    if UnitExists("target") then
-        return "target"
+    if UnitExists("target") then return "target" end
+
+    -- The "d" flag guard: prevents fallback to self
+    if flags.isDisableSelf then return nil end
+
+    -- Final fallback to player if enabled in settings
+    if fo_Settings and fo_Settings.selfCastEnabled then
+        return "player"
     end
 
-    -- 5. Fallback Logic (Self-Cast)
-    -- Must pass two checks:
-    -- A) The macro does NOT have the "d" (disable) flag.
-    -- B) The Global Setting "selfCastEnabled" is TRUE.
-    if not isDisableSelf then
-        if fo_Settings and fo_Settings.selfCastEnabled then
-            return "player"
-        end
-    end
-
-    -- Return nil to prevent "Glowing Hand" cursor
     return nil
 end
+
 function fo_getSmartTarget(spellName, arg2, arg3)
     return _GetSmartTarget(spellName, arg2, arg3)
 end
 
-
-
---- [Universal Dual Logic]
--- Decides which value to return based on the target's reaction.
--- @param helpVal: Returned if target is friendly or nil.
--- @param harmVal: Returned if target is an enemy.
-function fo_dualLogic(helpVal, harmVal, arg3, arg4)
-    -- Use our brain to resolve the unit
-    local unit = _GetSmartTarget(helpVal, arg3, arg4)
-
-    -- If the unit exists and can be attacked, pick the Harmful side.
+-- DUAL LOGIC ENGINE
+-- This logic is decoupled to support both spells (fo_castDual) and items (something like fo_itemDual).
+-- It is designed as a standalone function to allow for future expansion of
+-- decision criteria (e.g., checking for specific buffs, debuffs, or spell reflection)
+-- without needing to modify the core casting or item usage functions.
+function fo_dualLogic(helpVal, harmVal, unit)
+    -- If the resolved unit exists and is an enemy, pick the Harmful side.
     if unit and UnitExists(unit) and UnitCanAttack("player", unit) then
-        return harmVal, unit
+        return harmVal
     end
-
     -- Default to the Helpful side.
-    return helpVal, unit
+    return helpVal
 end
 
-
-
---- [Internal] Cleans spell rank for aura scanning.
+--- SPELL NAME NORMALIZER
+-- Removes " (Rank X)" suffix from spell names for logic comparisons.
+-- Necessary because CastingBarFrame.spellName often excludes rank info.
+-- ==========================================================
+-- UTILS: SPELL NAME NORMALIZATION
+-- ==========================================================
 local function _GetPureName(spellName)
-    return string.gsub(spellName, "%(Rank %d+%)", "")
+    if not spellName then return "" end
+
+    -- 1. First, convert to lowercase to handle any case sensitivity
+    local name = string.lower(spellName)
+
+    -- 2. Remove rank info.
+    -- Vanilla patterns: " (rank 1)", "(rank 1)", " rank 1"
+    -- We use a more aggressive pattern to strip anything after 'rank'
+    name = string.gsub(name, "%s?%(?rank%s?%d+%)?", "")
+
+    -- 3. Trim extra spaces from ends
+    name = string.gsub(name, "^%s*(.-)%s*$", "%1")
+
+    return name
+end
+function fo_getPureName(spellName)
+    return _GetPureName(spellName)
 end
 
 
@@ -149,42 +175,88 @@ end
 
 
 -- ==========================================================
--- Smart cast spell with mouseover override
+-- HYBRID DUAL CAST
 -- ==========================================================
+-- Decoupled logic to decide between Help and Harm spells.
+-- Designed for future expansion (e.g., fo_itemDual).
+function fo_dualLogic(helpVal, harmVal, unit)
+    if unit and UnitExists(unit) and UnitCanAttack("player", unit) then
+        return harmVal
+    end
+    return helpVal
+end
 
---- [PRIMARY CAST INTERFACE]
--- The main wrapper for WoW's CastSpellByName.
--- Supports position-independent flags: fo_cast("Spell", "m") or fo_cast("Spell", nil, "s").
-function fo_cast(spellName, arg2, arg3)
+-- Main entry point for hybrid macros.
+function fo_castDual(helpSpell, harmSpell, ...)
+    -- 1. Identify target via SmartTarget (handles "m", "d", "s" flags).
+    local unit = _GetSmartTarget(helpSpell, arg)
+
+    -- 2. "d" flag guard: Stop if no valid target found to prevent auto-self cast.
+    if not unit then return end
+
+    -- 3. Select appropriate spell based on target reaction.
+    local spell = fo_dualLogic(helpSpell, harmSpell, unit)
+
+    -- 4. Relay to fo_cast for final execution and PCC check.
+    fo_cast(spell, unpack(arg))
+end
+
+
+
+
+
+
+-- ==========================================================
+-- CORE CASTING FUNCTION (With Immediate Nil Guard)
+-- ==========================================================
+function fo_cast(spellName, ...)
+    -- [1] Capture arguments using the built-in 'arg' table
+    -- In Lua 5.0, 'arg' is automatically created for any vararg function.
+    -- We've confirmed 'arg' can be used directly.
+    local args = arg 
     if not spellName or spellName == "" then return end
 
-    -- [1] Filter Check: Stop execution if any registered filter returns false.
+    -- [2] Filter Check (e.g., Shapeshift/Stance checks)
     local lowerName = string.lower(spellName)
-    for _, filterFunc in ipairs(fo_castFilters or {}) do
-        if filterFunc(lowerName) == false then return end
+    if fo_castFilters then
+        for i = 1, table.getn(fo_castFilters) do
+            local filterFunc = fo_castFilters[i]
+            if filterFunc(lowerName) == false then return end
+        end
     end
 
-    -- [2] Rank Handling: Appends "()" to ensure Max Rank if no rank is specified.
-    -- Targets strings ending in ")" like "Moonfire(Rank 1)" vs "Moonfire".
+    -- [3] Rank Handling
     if string.find(spellName, "[^0-9]%)$") and not string.find(spellName, "%(%)$") then
         spellName = spellName .. "()"
     end
 
-    -- [3] Final Target Resolution: Outsource intelligence to the core.
-    local target = _GetSmartTarget(spellName, arg2, arg3)
+    -- [4] Target Resolution
+    -- Use the captured 'args' for smart targeting logic.
+    local target = _GetSmartTarget(spellName, args)
+    if not target then return end
 
-    -- [4] Execution:
-    if target then
-        CastSpellByName(spellName, target)
-    end
+    -- [6] Execution
+    CastSpellByName(spellName, target)
+
 end
+
+
 
 -- Hybrid Dual Cast (Re-implemented using the Logic Engine)
-function fo_castDual(helpSpell, harmSpell, arg3, arg4)
-    local spell, unit = fo_dualLogic(helpSpell, harmSpell, arg3, arg4)
-    fo_cast(spell, unit)
-end
+function fo_castDual(helpSpell, harmSpell, ...)
+    -- 1. Identify the target unit using the shared engine (resolves m, d, s, etc.)
+    local unit = _GetSmartTarget(helpSpell, arg)
 
+    -- 2. Guard: If "d" is set and no target is found, stop immediately to prevent auto-self cast.
+    if not unit then return end
+
+    -- 3. Determine which spell to use based on the unit's reaction.
+    local spell = fo_dualLogic(helpSpell, harmSpell, unit)
+
+    -- 4. Relay the final decision to fo_cast for execution and PCC handling.
+    -- We unpack the original arguments to ensure PCC options are passed.
+    fo_cast(spell, unit, unpack(arg))
+end
 
 -- ==========================================================
 -- Aura Checker
@@ -260,7 +332,6 @@ end
 
 
 
-
 -- ==========================================================
 -- RESOURCE CHECKER (Standardized & Fixed)
 -- ==========================================================
@@ -319,7 +390,7 @@ local function _ResourceLogic(input, arg2, arg3, unit)
     elseif stat == "p" or stat == "mana" then
         current, max = UnitMana(unit), UnitManaMax(unit)
     else
-        return false 
+        return false
     end
 
     -- 4. Threshold Conversion (Handle % and tonumber)
@@ -332,8 +403,8 @@ local function _ResourceLogic(input, arg2, arg3, unit)
     end
 
     -- 5. Final Comparison Logic
-    if op == ">"  then return current >  targetVal end
-    if op == "<"  then return current <  targetVal end
+    if op == ">" then return current > targetVal end
+    if op == "<" then return current < targetVal end
     if op == ">=" then return current >= targetVal end
     if op == "<=" then return current <= targetVal end
     if op == "==" or op == "=" then return current == targetVal end
@@ -353,6 +424,8 @@ end
 function fo_RSUnit(input, unit)
     return _ResourceLogic(input, nil, nil, unit or "target")
 end
+
+
 
 
 
@@ -486,6 +559,27 @@ function fo_hasSpell(spellName)
     return false
 end
 
+
+-- Max Rank Finder
+-- Scans the player's spellbook to find the highest available rank of a spell
+function fo_getMaxRank(spellName)
+    local targetName = string.lower(spellName)
+    local maxRank = 0
+    local i = 1
+    while true do
+        local name, rank = GetSpellName(i, "spell")
+        if not name then break end
+        if string.lower(name) == targetName then
+            -- Extract numeric value from rank string (e.g., "Rank 5" -> 5)
+            local _, _, rankNumber = string.find(rank, "(%d+)")
+            if rankNumber then maxRank = tonumber(rankNumber) end
+        end
+        i = i + 1
+    end
+    return maxRank > 0 and maxRank or 1
+end
+
+
 -- ==========================================================
 -- Combat Utilities
 -- ==========================================================
@@ -499,28 +593,14 @@ function fo_isCombat()
     return false
 end
 
--- -- Casting State Detection (Does not work for Channeling) --
-local fo_currentCasting = false
-local castFrame = CreateFrame("Frame")
-
--- Register only standard casting events
-castFrame:RegisterEvent("SPELLCAST_START")
-castFrame:RegisterEvent("SPELLCAST_STOP")
-castFrame:RegisterEvent("SPELLCAST_INTERRUPTED")
-castFrame:RegisterEvent("SPELLCAST_FAILED")
-
-castFrame:SetScript("OnEvent", function()
-    -- In 1.12, 'event' is globally available within this scope
-    if (event == "SPELLCAST_START") then
-        fo_currentCasting = true
-    else
-        -- SPELLCAST_STOP, INTERRUPTED, or FAILED all reset the flag
-        fo_currentCasting = false
-    end
-end)
-
+-- Returns true if the player is currently casting a spell,
+-- based on the latest server-side events.
 function fo_isCasting()
-    return fo_currentCasting
+    -- Returns the boolean state from our event monitor
+    if fo_castState and fo_castState.isCasting then
+        return true
+    end
+    return false
 end
 
 -- Returns true if the player is Stealthed or Shadowmelded.
@@ -636,8 +716,6 @@ function fo_break()
     end
 end
 
-
-
 -- ==========================================================
 -- GENERIC ITEM UTILITY
 -- ==========================================================
@@ -661,7 +739,6 @@ function fo_GetItemCount(targetName)
     return count
 end
 
-
 -- Internal helper: Scans a list and uses the first available item found in bags
 local function _fo_ScanAndUseItem(list, categoryLabel)
     for _, name in ipairs(list) do
@@ -674,12 +751,12 @@ local function _fo_ScanAndUseItem(list, categoryLabel)
                     UseContainerItem(bag, slot)
                     -- Optional logging
                     -- DEFAULT_CHAT_FRAME:AddMessage("Used: " .. name .. " (" .. (categoryLabel or "Item") .. ")")
-                    return true 
+                    return true
                 end
             end
         end
     end
-    return false 
+    return false
 end
 
 
@@ -777,13 +854,6 @@ function fo_item(name)
     return true
 end
 
-
-
-
-
-
-
-
 -- Automatically finds and uses the highest priority bandage in your bags.
 function fo_bandage(targetArg) -- [FIX] Added targetArg here
     -- Priority list of bandages
@@ -829,7 +899,7 @@ function fo_bandage(targetArg) -- [FIX] Added targetArg here
     -- 2. Target Normalization (Fixed logic)
     local unit
     local t = string.lower(tostring(targetArg or ""))
-    
+
     if t == "s" or t == "self" or t == "player" then
         unit = "player"
     elseif targetArg and targetArg ~= "" then
@@ -844,25 +914,23 @@ function fo_bandage(targetArg) -- [FIX] Added targetArg here
     if UnitExists(unit) then
         -- Prevent using bandage on someone who already has "Recently Bandaged" debuff
         -- (Optional logic can be added here)
-        
+
         local currentTargetExists = UnitExists("target")
         local isSelf = UnitIsUnit("player", unit)
 
         if not UnitIsUnit("target", unit) then
             TargetUnit(unit)
             UseItemByName(targetBandage)
-            if currentTargetExists then 
-                TargetLastTarget() 
-            else 
-                ClearTarget() 
+            if currentTargetExists then
+                TargetLastTarget()
+            else
+                ClearTarget()
             end
         else
             UseItemByName(targetBandage)
         end
     end
 end
-
-
 
 -- Use best Health Potion
 function fo_healthPot()
@@ -891,6 +959,8 @@ function fo_manaPot()
     }
     return _fo_ScanAndUseItem(list, "Mana Potion")
 end
+
+
 
 
 
@@ -1036,141 +1106,64 @@ end
 
 
 -- ==========================================================
--- 41's Smart Functions: Modular Healing Engine
+-- Modular Healing Engines
 -- ==========================================================
 
--- ==========================================================
--- core.lua: Base Engine for Smart Functions
--- ==========================================================
+function fo_autoRankDual(helpSpell, harmSpell, lowHelpRank, midHelpRank, highHelpRank, lowThreshold, midThreshold)
+    -- Default values
+    lowHelpRank  = lowHelpRank or 3
+    midHelpRank  = midHelpRank or 5
+    highHelpRank = highHelpRank or "max"
+    lowThreshold = lowThreshold or "25%"
+    midThreshold = midThreshold or "50%"
 
--- [2] Optimal Rank Calculator
--- Calculates the most efficient spell rank based on HP deficit ratio
--- @param stopThreshold: Percentage of maxHeal to trigger fo_break (e.g., 0.3 = 30%)
+    local heal = fo_getPureName(helpSpell)
 
-function fo_CalculateRank(ld, maxHeal, maxRank, stopThreshold)
-    -- If no threshold, default to a very safe 10%
-    local threshold = stopThreshold or 0.1
-    
-    -- [ENHANCED SAFETY] 
-    -- If deficit is less than 1% of Max HP, OR less than the threshold of maxHeal
-    -- We force a stop. This kills "99% HP" ghost deficits.
-    if ld < 5 or ld <= (maxHeal * threshold) then 
-        return 0 
-    end
-    
-    local ratio = ld / maxHeal
-    if ratio <= 0 then return 0 end
-
-    if ratio >= 0.85 then return maxRank end
-    if ratio <= 0.15 then return 1 end
-    
-    local targetRank = math.ceil((ratio + 0.05) * maxRank)
-    return math.max(1, math.min(targetRank, maxRank))
-end
-
-
-
-
--- [3] Smart Dispatcher
--- Handles spell execution with temporary targeting for mouseover support
-function fo_ExecuteCast(unit, spellName, rank)
-    -- If somehow rank 0 reached here, FORCE BREAK
-    if not rank or rank <= 0 then
-        if fo_break then fo_break() end
-        return
-    end
-
-    local fullSpell = spellName .. "(Rank " .. rank .. ")"
-    
-    -- Target Swap Logic
-    if unit == "mouseover" and not UnitIsUnit("mouseover", "target") then
-        TargetUnit("mouseover")
-        fo_cast(fullSpell)
-        TargetLastTarget()
+    -- Rank decision
+    local rank
+    if fo_RS("ld<" .. lowThreshold) then
+        rank = lowHelpRank
+    elseif fo_RS("ld<" .. midThreshold) then
+        rank = midHelpRank
     else
-        fo_cast(fullSpell)
-    end
-end
-
-
--- [4] Max Rank Finder
--- Scans the player's spellbook to find the highest available rank of a spell
-function fo_getMaxRank(spellName)
-    local targetName = string.lower(spellName)
-    local maxRank = 0
-    local i = 1
-    while true do
-        local name, rank = GetSpellName(i, "spell")
-        if not name then break end
-        if string.lower(name) == targetName then
-            -- Extract numeric value from rank string (e.g., "Rank 5" -> 5)
-            local _, _, rankNumber = string.find(rank, "(%d+)")
-            if rankNumber then maxRank = tonumber(rankNumber) end
-        end
-        i = i + 1
-    end
-    return maxRank > 0 and maxRank or 1
-end
-
--- ==========================================================
--- Main Entry Point: fo_smartHeal
--- ==========================================================
--- Global router to direct healing logic based on player class.
--- @param spellName: e.g., "Regrowth", "Flash Heal", "Holy Light"
--- @param myMaxHeal: Estimated healing of the highest rank
--- @param arg2: Optional flag ("s" for self, "m" for mouseover-hostile, etc.)
-function fo_smartHeal(spellName, myMaxHeal, arg2, stopThreshold)
-    -- Argument Swap Logic:
-    -- If arg2 is a number, assume the user skipped 'target mode' 
-    -- and wants to set the threshold directly.
-    if type(arg2) == "number" then
-        stopThreshold = arg2
-        arg2 = nil -- Reset arg2 to default targeting
+        rank = highHelpRank
     end
 
-    local unit = fo_getSmartTarget(spellName, arg2)
-    if not unit then return end
-
-    local _, class = UnitClass("player")
-    if class == "DRUID" then
-        fo_Druid_SmartHeal(spellName, myMaxHeal, arg2, stopThreshold)
+    -- Construction
+    local spellString
+    if rank == "max" then
+        spellString = heal
     else
-        -- Fallback logic
-        local ld = UnitHealthMax(unit) - UnitHealth(unit)
-        local maxRank = fo_getMaxRank(spellName)
-        local rank = fo_CalculateRank(ld, myMaxHeal, maxRank, stopThreshold)
-        
-        if rank > 0 then
-            fo_ExecuteCast(unit, spellName, rank)
-        else
-            if fo_break then fo_break() end
-        end
+        spellString = heal .. "(Rank " .. rank .. ")"
     end
+    
+    -- Debug Output
+    -- Added logic for checking output in chat
+print("[Debug] Casting: " .. spellString .. " (Thresholds: " .. lowThreshold .. ", " .. midThreshold .. ")")    
+    -- Execute
+    fo_castDual(spellString, harmSpell)
 end
 
 
 
 
 
-
-
-
-
-
-
-
 -- ==========================================================
--- EVENT HANDLER FOR DATA LOADING
+-- MAIN EVENT HANDLER (Integrated & Fixed)
 -- ==========================================================
 local f = CreateFrame("Frame")
--- Register Initialization Event
+
+-- [1] Utility Events
 f:RegisterEvent("VARIABLES_LOADED")
--- Register Combat Log Events
-f:RegisterEvent("CHAT_MSG_SPELL_SELF_BUFF")
+-- [2] Combat & Taunt Events
 f:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
 
 
 f:SetScript("OnEvent", function()
+    -- 1.12では引数を使わず、グローバルな event / arg1 を直接参照するのが最も安全です
+    local event = event
+    local a1 = arg1
+
     -- CASE 1: Settings Initialization
     if event == "VARIABLES_LOADED" then
         fo_Settings = fo_Settings or {}
@@ -1188,16 +1181,14 @@ f:SetScript("OnEvent", function()
                 end
             end
         end
-        -- Optional: Update GUI checkbox state here after settings load
-        return -- Exit after initialization
+        return
     end
 
-    -- CASE 2: Combat Log Monitoring (Taunt Announcer)
-    -- We only monitor SELF_DAMAGE for taunt resists/misses
+    -- CASE 3: Combat Log Monitoring
     if event == "CHAT_MSG_SPELL_SELF_DAMAGE" then
         if fo_Settings and fo_Settings.announceTauntResist and fo_Settings.tauntSpells then
-            -- Note: ExecuteTauntAnnounce internally loops through fo_Settings.tauntSpells
-            ExecuteTauntAnnounce(arg1)
+            ExecuteTauntAnnounce(a1)
         end
+        return
     end
 end)

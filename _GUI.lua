@@ -444,6 +444,8 @@ AddApiAuto(DruidPanel, "DRUID", "/script fo_castAquaForm()", "Spammable Aquatic 
 AddApiAuto(DruidPanel, "DRUID", "/script fo_castTravelForm()", "Spammable Travel Form")
 AddApiAuto(DruidPanel, "DRUID", "/script fo_castMoonkinForm()", "Spammable Moonkin Form")
 AddApiAuto(DruidPanel, "DRUID", "/script fo_castTreeForm()", "Spammable Tree Form")
+AddApiAuto(DruidPanel, "DRUID", "/script fo_cancelForm()", "Cancels All Forms")
+
 AddApiAuto(DruidPanel, "DRUID",
     "fo_isBear() fo_isCat() fo_isTravel() fo_isAqua() fo_isMoonkin() fo_isTree() fo_isCaster()",
     "Returns true if in respective form")

@@ -1,78 +1,28 @@
 -- ==========================================================
--- Universal Unit Texture Checker
+-- Form Detection 
 -- ==========================================================
--- @param unit: "player", "target", "mouseover" etc.
--- @param texturePart: String to search for.
--- @return boolean: true if found.
-function fo_hasTexture(unit, texturePart)
-    if not UnitExists(unit) then return false end
-
-    -- Buffs and Debuffs are stored differently in 1.12.
-    -- We check both to be safe and universal.
-    local types = { "HELPFUL", "HARMFUL" }
-
-    for _, auraType in pairs(types) do
-        for i = 0, 31 do
-            -- Note: GetPlayerBuff is only for "player".
-            -- For other units, we use UnitBuff / UnitDebuff.
-            local texture
-            if unit == "player" and auraType == "HELPFUL" then
-                -- Player buffs are special in 1.12 for more detailed info,
-                -- but UnitBuff works for textures too.
-                texture = UnitBuff(unit, i + 1)
-            elseif auraType == "HELPFUL" then
-                texture = UnitBuff(unit, i + 1)
-            else
-                texture = UnitDebuff(unit, i + 1)
-            end
-
-            if not texture then break end
-            if string.find(texture, texturePart) then
-                return true
-            end
-        end
-    end
-    return false
-end
-
--- ==========================================================
--- Form Detection Aliases
--- Description: Simple shorthand functions for Druid forms
--- ==========================================================
-
--- Internal helper to check presence of a texture by name (case-insensitive)
-local function _hasTex(texName)
-    -- Using the existing fo_hasTexture logic but simplified for internal use
-    for i = 1, 32 do
-        local b = UnitBuff("player", i)
-        if not b then break end
-        if string.find(string.lower(b), string.lower(texName)) then return true end
-    end
-    return false
-end
-
 function fo_isBear()
-    return _hasTex("Ability_Racial_BearForm") or _hasTex("Ability_Druid_BearForm")
+    return fo_aura("Ability_Racial_BearForm")
 end
 
 function fo_isCat()
-    return _hasTex("Ability_Druid_CatForm")
+    return fo_aura("Ability_Druid_CatForm")
 end
 
 function fo_isTravel()
-    return _hasTex("Ability_Druid_TravelForm")
+    return fo_aura("Ability_Druid_TravelForm")
 end
 
 function fo_isAqua()
-    return _hasTex("Ability_Druid_AquaticForm")
+    return fo_aura("Ability_Druid_AquaticForm")
 end
 
 function fo_isMoonkin()
-    return _hasTex("Spell_Nature_ForceOfNature")
+    return fo_aura("Spell_Nature_ForceOfNature")
 end
 
 function fo_isTree()
-    return _hasTex("Ability_Druid_TreeofLife")
+    return fo_aura("Ability_Druid_TreeofLife")
 end
 
 function fo_isFeral()
@@ -86,25 +36,13 @@ end
 -- ==========================================================
 -- Spammable Shapeshift Script
 -- ==========================================================
-local function GetBestBearForm()
-    local i = 1
-    while true do
-        local name = GetSpellName(i, "spell")
-        if not name then break end
-        if name == "Dire Bear Form" then
-            return "Dire Bear Form"
-        end
-        i = i + 1
-    end
-    return "Bear Form"
-end
-
 function fo_castBearForm()
     if fo_isBear() then
         return
+    elseif fo_hasSpell('Dire Bear Form') then
+        fo_cast('Dire Bear Form')
+    else fo_cast('Bear Form')
     end
-    local bestForm = GetBestBearForm()
-    fo_cast(bestForm)
 end
 
 function fo_castCatForm()
@@ -142,31 +80,78 @@ function fo_castTreeForm()
     fo_cast("Tree of Life Form")
 end
 
--- Function to return to Caster Form by cancelling any active shapebuff
+
+-- ==========================================================
+-- Cancel Form Script
+-- ==========================================================
+-- Description: Cancels any active Druid shapeshift form.
+-- Drectly cancells the buff
+-- then falls back to CastShapeshiftForm if the buff is not found.
 function fo_cancelForm()
-    -- Check if we are in any form using our simplified aliases
-    if fo_isBear() or fo_isCat() or fo_isTravel() or fo_isAqua() or fo_isMoonkin() or fo_isTree() then
-        -- Scan buffs to find and cancel the form/stance
-        for i = 0, 31 do
-            local id = GetPlayerBuff(i, "HELPFUL")
-            if id == -1 then break end
+    local found = false
 
-            fo_scanner:ClearLines()
-            fo_scanner:SetPlayerBuff(id)
-            local name = FoAuraScannerTextLeft1:GetText() or ""
-            local nameLower = string.lower(name)
+    -- 1. Try to cancel the form by scanning active buffs
+    -- This method works even when stunned or silenced (CC'd)
+    for i = 0, 31 do
+        local id = GetPlayerBuff(i, "HELPFUL")
 
-            -- If the name matches any protected keyword (form, stance, etc.), cancel it
-            for _, key in pairs(FO_PROTECTED_KEYWORDS) do
-                if string.find(nameLower, string.lower(key)) then
-                    CancelPlayerBuff(id)
-                    return true
-                end
+        -- Check if a valid buff exists in this slot
+        if (id and id ~= -1) then
+            local tex = GetPlayerBuffTexture(id)
+            
+            -- Identify form buffs by checking the texture path keywords
+            -- Using partial matches to cover different ranks and racial icons
+            if tex and (string.find(tex, "BearForm") or 
+                        string.find(tex, "CatForm") or 
+                        string.find(tex, "TravelForm") or 
+                        string.find(tex, "AquaticForm") or
+                        string.find(tex, "MoonkinForm") or
+                        string.find(tex, "TreeOfLifeForm")) then
+
+                -- Cancel the buff by its dynamic index
+                CancelPlayerBuff(id)
+                found = true
+                break -- Exit loop once the form is found and cancelled
             end
         end
     end
-    return false
+
+    -- 2. Fallback: If no buff was found (e.g., buff slot limit reached)
+    -- Attempt to cancel via the shapeshift bar (does not work while stunned)
+    if not found then
+        for i = 1, GetNumShapeshiftForms() do
+            local _, _, active = GetShapeshiftFormInfo(i)
+            if active then
+                -- Casting the active form again toggles it off
+                CastShapeshiftForm(i)
+                found = true
+                break
+            end
+        end
+    end
+
+    return found
 end
+
+
+
+
+function listMyBuffIndices()
+    for i = 0, 23 do
+        -- i はスロット番号、index は APIで操作するためのID
+        local index = GetPlayerBuff(i, "HELPFUL")
+        
+        -- index が -1 でなければ、そこにバフが存在する
+        if (index > -1) then
+            -- インデックスを使ってテクスチャパスを取得（名前判定の代わり）
+            local texture = GetPlayerBuffTexture(index)
+            
+            -- デバッグ表示
+            DEFAULT_CHAT_FRAME:AddMessage("Slot: "..i.." | Index: "..index.." | Texture: "..texture)
+        end
+    end
+end
+
 
 -- ==========================================================
 -- Form Specific Spellcasts (Refactored)
@@ -436,256 +421,3 @@ if class == "DRUID" then
     fo_registerFilter(druidFilter)
 end
 
-
-
-
-
-
--- ==========================================================
--- 41's Smart Functions: Druid Module
--- ==========================================================
-
--- Internal helper: Specific mechanic for Regrowth
-local function _Druid_MaintainRejuvenation(unit)
-    -- If Rejuvenation is missing, cast Rank 1 to empower future Regrowth
-    if not fo_aura("rejuvenation") then
-        fo_ExecuteCast(unit, "Rejuvenation", 1)
-        return true -- Mechanic active
-    end
-    return false
-end
-
-
-
-
--- [Internal Process Function]
--- Shared logic for handling Pre-cast and the "0.5s Late Cancel" rule
-local function _fo_Druid_Process_Unified(spellName, unit, hpPercent, ld, rank, isCasting, timeLeft)
-    -- ==========================================
-    -- CORE: Pre-cast & Late Cancel Logic
-    -- ==========================================
-    if isCasting then
-        -- If HP is stable (>= 95%), decide whether to cancel or hold
-        if hpPercent >= 0.95 then
-            -- Cancel ONLY in the final 0.5s window to maximize "waiting for damage" time
-            if timeLeft > 0 and timeLeft < 0.5 then
-                SpellStopCasting() 
-                return true
-            else
-                -- Observation Phase: Hold the cast even at 100% HP
-                return true
-            end
-        end
-        -- If HP is low, always allow the cast to finish
-        return true 
-    end
-
-    -- Initial Cast Execution
-    if rank > 0 then
-        fo_ExecuteCast(unit, spellName, rank)
-        return true
-    end
-    return false
-end
-
-
--- ==========================================================
--- [Main Entry] Called from In-game Macro
--- ==========================================================
-
-
-
--- -- @param spellName: "Healing Touch", etc.
--- -- @param N: Heal amount of the "Common Rank" with your gear/talents.
--- -- @param r1: Common Rank (e.g., 3 or 4)
--- -- @param r2: Mid Rank (e.g., 7)
--- -- @param r3: Emergency/Max Rank (e.g., 11)
--- function fo_Druid_ManualStyle(spellName, N, r1, r2, r3, arg2)
---     -- 1. Target and HP Acquisition
---     local unit = fo_getSmartTarget(spellName, arg2)
---     if not unit then 
---         if CastingBarFrame and CastingBarFrame.casting then SpellStopCasting() end
---         return 
---     end
-
---     local curHP = UnitHealth(unit)
---     local maxHP = UnitHealthMax(unit)
---     local hpPercent = curHP / maxHP
---     local ld = maxHP - curHP
-    
---     -- 2. Casting Information Acquisition
---     local isCasting = CastingBarFrame and CastingBarFrame.casting
---     local finishTime = CastingBarFrame and CastingBarFrame.maxValue or 0
---     local currentTime = CastingBarFrame and CastingBarFrame.value or 0
---     local timeLeft = finishTime - currentTime
-
---     -- ==========================================
---     -- [CORE] Pre-cast & Late Cancel Logic
---     -- ==========================================
---     -- If HP is above 95%:
---     -- Wait until the very last moment (0.5s before finish) in case of sudden damage.
---     -- If damage doesn't occur by the deadline, cancel to save mana.
-    
---     if isCasting then
---         if hpPercent >= 0.95 then
---             -- Deadline Check: Only cancel if we are within the final 0.5s window
---             if timeLeft > 0 and timeLeft < 0.5 then
---                 SpellStopCasting() -- Cancel: HP is still full at the last second
---                 return
---             else
---                 -- Maintain cast: Still have time, damage might come soon
---                 return
---             end
---         end
---         -- Target is below 95%: Continue the cast to completion
---         return 
---     end
-
---     -- ==========================================
---     -- 3. Initial Cast Decision (Start Pre-cast)
---     -- ==========================================
---     local rank = 0
-    
---     if hpPercent < 0.40 then
---         -- A. Emergency: Below 60% HP
---         rank = r3 or fo_getMaxRank(spellName)
---     elseif hpPercent < 0.75 then
---         -- B. Warning: 40% - 75% HP
---         rank = r2 or (r1 + 3)
---     elseif hpPercent < 1.0 then
---         -- C. Pre-cast: 75% - 99% HP
---         -- Start casting the Common Rank (r1) proactively
---         rank = r1 or 3
---     end
-
---     -- 4. Execution
---     if rank > 0 then
---         fo_ExecuteCast(unit, spellName, rank)
---     end
--- end
-
-
-
-
-
-
-
-
-
--- fo_Druid_SmartHeal: Standard balanced smart heal logic
-function fo_Druid_SmartHeal(spellName, myMaxHeal, arg2, stopThreshold)
-    -- [1] Handle arguments
-    if type(arg2) == "number" then
-        stopThreshold = arg2
-        arg2 = nil
-    end
-
-    local unit = fo_getSmartTarget(spellName, arg2)
-    if not unit then 
-        -- Stop casting if the target is lost
-        if CastingBarFrame and CastingBarFrame.casting then SpellStopCasting() end
-        return 
-    end
-
-    -- [2] Check current casting status
-    -- Using CastingBarFrame for reliable status in Vanilla WoW
-    local isCasting = CastingBarFrame.casting or (CastingBarFrame.channeling)
-
-    local curHP = UnitHealth(unit)
-    local maxHP = UnitHealthMax(unit)
-    local ld = maxHP - curHP
-
-    -- [3] Forced Interrupt Logic
-    -- Cancel cast if target is full HP or the deficit is too small based on stopThreshold
-    if curHP >= maxHP or (ld < (myMaxHeal * (stopThreshold or 0.1))) then
-        if isCasting then
-            SpellStopCasting()
-            -- DEFAULT_CHAT_FRAME:AddMessage("Overheal Cancelled!") -- Debug info
-        end
-        -- Exit to prevent starting a new cast
-        return 
-    end
-
-    -- [4] Initiate Heal
-    -- If already casting and target still needs healing, do nothing (prevent reset)
-    if isCasting then return end
-
-    local maxRank = fo_getMaxRank(spellName)
-    local rank = fo_CalculateRank(ld, myMaxHeal, maxRank, stopThreshold)
-
-    if rank and rank > 0 then
-        -- Specific logic for Regrowth
-        if string.lower(spellName) == "regrowth" then
-            if _Druid_MaintainRejuvenation(unit) then return end
-        end
-        
-        -- Execute the spell cast
-        fo_ExecuteCast(unit, spellName, rank)
-    end
-end
-
-
-
-
--- ==========================================
--- 1. Custom Style (Your Manual Style)
--- Focused on "N" (Common Heal) and specific HP thresholds
--- ==========================================
-function fo_Druid_ManualStyle(spellName, N, r1, r2, r3, arg2)
-    local unit = fo_getSmartTarget(spellName, arg2)
-    if not unit then return end
-
-    local curHP, maxHP = UnitHealth(unit), UnitHealthMax(unit)
-    local hpPercent, ld = curHP / maxHP, maxHP - curHP
-    local isCasting = CastingBarFrame and CastingBarFrame.casting
-    local timeLeft = (CastingBarFrame and CastingBarFrame.maxValue or 0) - (CastingBarFrame and CastingBarFrame.value or 0)
-
-    local rank = 0
-    if hpPercent < 0.40 then
-        rank = r3 or fo_getMaxRank(spellName) -- Emergency Phase
-    elseif hpPercent < 0.75 then
-        rank = r2 or (r1 + 3)               -- Warning Phase
-    elseif ld > (N * 0.9) then
-        rank = r1 or 3                      -- Maintenance/Pre-cast Phase
-    end
-
-    _fo_Druid_Process_Unified(spellName, unit, hpPercent, ld, rank, isCasting, timeLeft)
-end
-
--- ==========================================
--- 2. Small Heal Style (Proactive Maintenance)
--- Higher sensitivity, using lower ranks to keep targets near 100%
--- ==========================================
-function fo_Druid_SmallHeal(spellName, myMaxHeal, arg2, stopThreshold)
-    local unit = fo_getSmartTarget(spellName, arg2)
-    if not unit then return end
-
-    local curHP, maxHP = UnitHealth(unit), UnitHealthMax(unit)
-    local hpPercent, ld = curHP / maxHP, maxHP - curHP
-    local isCasting = CastingBarFrame and CastingBarFrame.casting
-    local timeLeft = (CastingBarFrame and CastingBarFrame.maxValue or 0) - (CastingBarFrame and CastingBarFrame.value or 0)
-
-    -- Uses a 0.7 modifier to lean towards faster, smaller ranks
-    local rank = fo_CalculateRank_Base(ld, myMaxHeal, fo_getMaxRank(spellName), stopThreshold or 0.05, 0.7)
-
-    _fo_Druid_Process_Unified(spellName, unit, hpPercent, ld, rank, isCasting, timeLeft)
-end
-
--- ==========================================
--- 3. Efficient Style (Mana Conservation)
--- Only reacts to significant damage to utilize the 5-second rule
--- ==========================================
-function fo_Druid_EfficientHeal(spellName, myMaxHeal, arg2, stopThreshold)
-    local unit = fo_getSmartTarget(spellName, arg2)
-    if not unit then return end
-
-    local curHP, maxHP = UnitHealth(unit), UnitHealthMax(unit)
-    local hpPercent, ld = curHP / maxHP, maxHP - curHP
-    local isCasting = CastingBarFrame and CastingBarFrame.casting
-    local timeLeft = (CastingBarFrame and CastingBarFrame.maxValue or 0) - (CastingBarFrame and CastingBarFrame.value or 0)
-
-    -- Higher threshold (0.3) means no action until 30% HP is missing
-    local rank = fo_CalculateRank_Base(ld, myMaxHeal, fo_getMaxRank(spellName), stopThreshold or 0.3, 1.0)
-
-    _fo_Druid_Process_Unified(spellName, unit, hpPercent, ld, rank, isCasting, timeLeft)
-end
