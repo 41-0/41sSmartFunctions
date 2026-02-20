@@ -1139,7 +1139,7 @@ function fo_autoRankDual(helpSpell, harmSpell, lowHelpRank, midHelpRank, highHel
     
     -- Debug Output
     -- Added logic for checking output in chat
-print("[Debug] Casting: " .. spellString .. " (Thresholds: " .. lowThreshold .. ", " .. midThreshold .. ")")    
+    -- print("[Debug] Casting: " .. spellString .. " (Thresholds: " .. lowThreshold .. ", " .. midThreshold .. ")")    
     -- Execute
     fo_castDual(spellString, harmSpell)
 end
