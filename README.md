@@ -433,8 +433,8 @@ The `fo_RS` function allows you to create intelligent macros that change behavio
 
 `fo_RS("condition", "target_flag")`
 
+* **Smart Targeting System**: Follows STS. "s", "m", "WoWUnitID" works.
 * **Condition**: A string containing the stat, operator, and value (e.g., `"hp < 50%"`, `"pd > 1000"`).
-* **Target Flag (Optional)**: Uses the Smart Target System (STS).
 
 ---
 
@@ -442,10 +442,10 @@ The `fo_RS` function allows you to create intelligent macros that change behavio
 
 | Alias | Description | Type |
 | --- | --- | --- |
-| **`l`**, **`hp`** | Current Life / Health | Current Value |
-| **`p`**, **`mana`** | Current Power / Mana | Current Value |
-| **`ld`**, **`hd`** | **Life Deficit** (Max - Current) | Missing Amount |
-| **`pd`**, **`md`** | **Power Deficit** (Max - Current) | Missing Amount |
+| **`l`**| Current Life / Health | Current Value |
+| **`p`**| Current Power / Mana | Current Value |
+| **`ld`**| **Life Deficit** (Max - Current) | Missing Amount |
+| **`pd`**| **Power Deficit** (Max - Current) | Missing Amount |
 
 ---
 
@@ -466,7 +466,7 @@ Standard percentage check for survival skills.
 
 ```lua
 -- Cast Shield if your health drops below 30%
-/script if fo_RS("hp < 30%", "s") then fo_cast("Power Word: Shield", "s") end
+/script if fo_RS("l<30%", "s") then fo_cast("Power Word: Shield", "s") end
 ```
 
 ---
