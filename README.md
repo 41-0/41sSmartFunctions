@@ -357,49 +357,6 @@ All core features can be toggled via the In-game Configuration Panel.
 
 **Note:** These features only apply to spells triggered via this addon's scripts (e.g., `/script fo_cast()`). Standard action bar buttons remain unaffected to preserve vanilla-like control when needed.
 
----
-
-
-
-
-### Spam Button Heals (not optimal)
-
-
-```lua
-/script fo_Druid_ManualStyle("Healing Touch", 400, 4, 7, 11)
-[spellName], [common rank heal ammount], [common rank], [middle rank], [max rank]
-```
-
-* **HP<40%**: Loads r3 (Emergency/Max Rank) to prevent immediate death.
-* **40%≤HP<75%**: Loads r2 (Mid Rank) to stabilize the tank from significant damage.
-75%≤HP<100%: Loads (Common Rank) for proactive "Pre-casting."
-* **Pre-cast Initiation**: As long as the tank is not 100%, it initiates (Common Rank).
-* **The Observation Phase**: From 0% to nearly 80% of the cast time, the script remains silent even if the tank is topped off. This allows for "incoming damage windows."
-* **The Decision Point**: Exactly 0.5 seconds before the spell finishes, it checks the HP again. If it's still , it triggers `SpellStopCasting()`.
-* **Commit Phase**: If the HP drops below 95% at any point, the script allows the heal to land.
-
-### fo_Druid_SmallHeal(spellName, myMaxHeal, arg2, stopThreshold)
-
-### fo_Druid_EfficientHeal(spellName, myMaxHeal, arg2, stopThreshold)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 ---
