@@ -9,15 +9,15 @@
 ## Table of Contents
 
 1. [Quick Start Examples](#quick-start-examples)
-2. [Targeting Priority](#targeting-priority)
+2. [Targeting Priority](#sts)
 3. [Combat Utilities](#combat)
 4. [Items & Consumables](#items)
 5. [Druid Specific Features](#druid-specific-features)
 6. [Full Technical Reference (Advanced)](#full-technical-reference-advanced)
 
 - [Aura Checker (fo_aura)](#-aura-checker-fo_aura)
-- [Resource Checker (fo_RS)](#-resource-checker-fo_rs)
-- [Cooldown Checker](#-cooldown-checker-fo_CD)
+- [Resource Checker (fo_RS)](#resource-checker)
+- [Cooldown Checker](#cd-checker)
 - [Status / Equipment Checker](#boolean-checkers)
 
 7. [Installation](#installation)
@@ -43,7 +43,7 @@ The engine automatically handles Mouseover, Target, and Self-cast logic.
 #### [!IMPORTANT] Always place the Helpful spell first (left) and the Harmful spell second (right).
 
 
-## 🎯 Smart Target System (STS)
+## <a id="sts"></a>🎯 Smart Target System (STS)
 
 Many function in this addon shares the **STS** logic. This universal targeting engine manages how spells and items are directed, from friendly heals to hostile DoTs.
 
@@ -468,7 +468,7 @@ The Aura Checker ensures your macros are "aware" of active buffs and debuffs. It
 
 
 
-## 📊 Resource Scanner (`fo_RS`)
+## <a id="resource-checker"></a>📊 Resource Scanner (`fo_RS`)
 
 The `fo_RS` function allows you to create intelligent macros that change behavior based on Health or Power (Mana/Rage/Energy) levels. It supports both **percentage-based** checks and **absolute deficit** checks.
 
@@ -533,7 +533,7 @@ For developers who want raw numbers for their own custom logic:
 
 <BR><BR>
 
-## ⏳ Cooldown Checker (`fo_CD`)
+## <a id="cd-checker"></a>⏳ Cooldown Checker (`fo_CD`)
 
 The `fo_CD` function returns `true` if a spell is currently on cooldown. It is designed to ignore the Global Cooldown (GCD), so it only returns `true` for actual ability cooldowns (like the 15s on _Swiftmend_).
 
