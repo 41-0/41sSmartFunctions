@@ -1,22 +1,48 @@
 -- ==========================================================
--- SCANNER INITIALIZATION
--- ==========================================================
--- Create a hidden tooltip for scanning buff names
-if not fo_scanner then
-    fo_scanner = CreateFrame("GameTooltip", "FoAuraScanner", nil, "GameTooltipTemplate")
-    fo_scanner:SetOwner(WorldFrame, "ANCHOR_NONE")
-end
-
--- keywords used to identify forms/stances in tooltips
--- Used by the scanner to identify buffs that should prevent auto-unshifting
-FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal"}
-
-
--- ==========================================================
 -- SETTINGS INITIALIZATION
 -- ==========================================================
 fo_Settings = fo_Settings or {}
 
+
+-- ==========================================================
+-- SCANNER MANAGEMENT (Robust version)
+-- ==========================================================
+function fo_GetScanner()
+    if not _G["FoAuraScanner"] then
+        local frame = CreateFrame("GameTooltip", "FoAuraScanner", nil, "GameTooltipTemplate")
+        frame:SetOwner(WorldFrame, "ANCHOR_NONE")
+    end
+    return _G["FoAuraScanner"]
+end
+
+-- ==========================================================
+-- SAFE SCANNER WRAPPER
+-- ==========================================================
+-- func: A function that describes the task to be performed using the scanner
+function fo_Scan(func)
+    local scanner = fo_GetScanner()
+    -- Ensure the scanner is visible for interaction, then clear previous tooltip data
+    scanner:Show()
+    scanner:ClearLines()
+
+    -- Execute the provided function safely and capture the return result
+    local status, result = pcall(func, scanner)
+
+    -- Always hide the scanner after processing to prevent UI interference
+    scanner:Hide()
+
+    -- Return nil if the execution failed, otherwise return the actual result
+    if not status then
+        -- Debugging: Uncomment the line below to log errors in-game
+        -- DEFAULT_CHAT_FRAME:AddMessage("Scan Error: " .. tostring(result))
+        return nil
+    end
+    return result
+end
+
+-- keywords used to identify forms/stances in tooltips
+-- Used by the scanner to identify buffs that should prevent auto-unshifting
+FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal" }
 
 -- ==========================================================
 -- Public API (Functions to use in Macros)
@@ -272,17 +298,26 @@ local function _CheckAuraByName(spellName, unit)
                 return true
             end
 
-            -- 2. Check by Tooltip Text (Normalize to lowercase)
-            local ok = pcall(function()
-                fo_scanner:SetOwner(WorldFrame, "ANCHOR_NONE")
-                fo_scanner:ClearLines()
-                if auraType == "HELPFUL" then fo_scanner:SetUnitBuff(unit, i) else fo_scanner:SetUnitDebuff(unit, i) end
-            end)
-            if ok then
-                local tooltipText = FoAuraScannerTextLeft1:GetText()
-                if tooltipText and strlower(tooltipText) == searchName then
-                    return true
+            -- Check by Tooltip Text
+            -- Uses fo_Scan to safely interact with the tooltip
+            local isMatch = fo_Scan(function(scanner)
+                scanner:SetOwner(WorldFrame, "ANCHOR_NONE")
+                if auraType == "HELPFUL" then
+                    scanner:SetUnitBuff(unit, i)
+                else
+                    scanner:SetUnitDebuff(unit, i)
                 end
+
+                -- Retrieve the tooltip text using the global name
+                local textLeft1 = _G["FoAuraScannerTextLeft1"]
+                local tooltipText = textLeft1 and textLeft1:GetText()
+
+                -- Return true if text matches the search name
+                return tooltipText and strlower(tooltipText) == searchName
+            end)
+
+            if isMatch then
+                return true
             end
 
             i = i + 1
@@ -449,39 +484,34 @@ end
 
 -- Internal helper to scan tooltips for specific keywords.
 local function fo_scanFor(slotID, keyword)
-    -- 0. Absolute Safety: Check if the player is currently in a state
-    -- where scanning might be dangerous (like during a talent reset).
-    -- In Vanilla, checking if we have a valid unit name can be a quick sanity check.
+    -- 0. Sanity check: Ensure player state is valid
     if not UnitName("player") then return false end
 
     -- 1. Existing link check
     if not GetInventoryItemLink("player", slotID) then return false end
 
-    -- Safety Check: Ensure the scanner object is initialized.
-    if not fo_scanner or not fo_scanner.SetInventoryItem then
-        return false
-    end
-
-    -- Use pcall (protected call) to prevent crash if memory is unstable.
-    local ok, hasItem = pcall(function()
-        fo_scanner:ClearLines()
-        return fo_scanner:SetInventoryItem("player", slotID)
+    -- 2. Safely perform the inventory scan using the wrapper
+    -- fo_Scan will handle pcall and visibility, returning true if the item was set
+    local hasItem = fo_Scan(function(scanner)
+        return scanner:SetInventoryItem("player", slotID)
     end)
 
-    if not ok or not hasItem then return false end
+    -- Corrected safety check: only check hasItem
+    if not hasItem then return false end
 
+    -- 3. Scan the tooltip lines for the keyword
     for i = 1, 5 do
-        local leftObj = getglobal("FoAuraScannerTextLeft" .. i)
+        local leftObj = _G["FoAuraScannerTextLeft" .. i]
         if leftObj then
-            local left = leftObj:GetText()
-            local rightObj = getglobal("FoAuraScannerTextRight" .. i)
+            local left = leftObj:GetText() or ""
+            local rightObj = _G["FoAuraScannerTextRight" .. i]
             local right = (rightObj and rightObj:GetText()) or ""
 
-            -- Case-insensitive and plain text search for reliability
-            local content = string.lower((left or "") .. right)
-            local k = string.lower(keyword)
+            -- Case-insensitive search
+            local content = strlower(left .. right)
+            local k = strlower(keyword)
 
-            if string.find(content, k, 1, true) then
+            if strfind(content, k, 1, true) then
                 return true
             end
         end
@@ -657,14 +687,13 @@ end
 function fo_startShoot()
     if fo_isShooting() then return end
 
-    -- 1. Scan tooltips safely with pcall
-    local ok, hasItem = pcall(function()
-        fo_scanner:ClearLines()
-        return fo_scanner:SetInventoryItem("player", 18)
+    -- 1. Scan tooltips safely using the wrapper
+    local hasItem = fo_Scan(function(scanner)
+        return scanner:SetInventoryItem("player", 18)
     end)
 
-    -- If pcall failed or item doesn't exist, stop
-    if not ok or not hasItem then return end
+    -- If the function failed (nil) or item doesn't exist (false), stop
+    if not hasItem then return end
 
     local spell = nil
     -- 2. Iterate through lines safely
@@ -972,40 +1001,41 @@ function fo_dismount()
         if GetPlayerBuffTimeLeft(id) == 0 then
             local texture = GetPlayerBuffTexture(id)
             if texture then
-                local texLower = string.lower(texture)
+                local texLower = strlower(texture)
                 local isMountCandidate = false
 
+                -- Check if the texture matches known mount patterns
                 for _, pattern in pairs(FO_MOUNT_TEXTURES) do
-                    if string.find(texLower, string.lower(pattern)) then
+                    if strfind(texLower, strlower(pattern)) then
                         isMountCandidate = true
                         break
                     end
                 end
 
                 if isMountCandidate then
-                    local ok = pcall(function()
-                        fo_scanner:ClearLines()
-                        fo_scanner:SetPlayerBuff(id)
-                    end)
+                    -- Safely scan tooltip to get the exact buff name
+                    local buffName = fo_Scan(function(scanner)
+                        scanner:SetPlayerBuff(id)
+                        local leftObj = _G["FoAuraScannerTextLeft1"]
+                        return leftObj and leftObj:GetText()
+                    end) or ""
 
-                    if ok then
-                        local buffName = (FoAuraScannerTextLeft1 and FoAuraScannerTextLeft1:GetText()) or ""
-                        local buffNameLower = string.lower(buffName)
-                        local isProtected = false
+                    local buffNameLower = strlower(buffName)
+                    local isProtected = false
 
-                        if buffNameLower ~= "travel form" and buffNameLower ~= "aquatic form" then
-                            for _, key in pairs(FO_PROTECTED_KEYWORDS) do
-                                if string.find(buffNameLower, string.lower(key)) then
-                                    isProtected = true
-                                    break
-                                end
+                    -- Check against protection keywords
+                    if buffNameLower ~= "travel form" and buffNameLower ~= "aquatic form" then
+                        for _, key in pairs(FO_PROTECTED_KEYWORDS) do
+                            if strfind(buffNameLower, strlower(key)) then
+                                isProtected = true
+                                break
                             end
                         end
+                    end
 
-                        if not isProtected then
-                            CancelPlayerBuff(id)
-                            return true
-                        end
+                    if not isProtected then
+                        CancelPlayerBuff(id)
+                        return true
                     end
                 end
             end

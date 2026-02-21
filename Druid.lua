@@ -142,7 +142,6 @@ function fo_castTreeForm()
     fo_cast("Tree of Life Form")
 end
 
-
 FO_DRUID_FORMS = { "Bear Form", "Cat Form", "Aquatic Form", "Travel Form", "Moonkin Form", "Tree of Life Form" }
 
 -- Function to return to Caster Form by cancelling any active shapebuff
@@ -176,16 +175,17 @@ function fo_cancelForm()
             local id = GetPlayerBuff(i, "HELPFUL")
             if id == -1 then break end
 
-            fo_scanner:ClearLines()
-            fo_scanner:SetPlayerBuff(id)
-            
-            local textObj = _G[fo_scanner:GetName() .. "TextLeft1"]
-            local name = (textObj and textObj:GetText()) or ""
-            
+            -- Safely scan tooltip to identify the form buff
+            local buffName = fo_Scan(function(scanner)
+                scanner:SetPlayerBuff(id)
+                local leftObj = _G["FoAuraScannerTextLeft1"]
+                return leftObj and leftObj:GetText()
+            end) or ""
+
             -- Compare name with form keywords
-            local nameLower = string.lower(name)
+            local nameLower = strlower(buffName)
             for _, formName in pairs(FO_DRUID_FORMS) do
-                if string.find(nameLower, string.lower(formName)) then
+                if strfind(nameLower, strlower(formName)) then
                     CancelPlayerBuff(id)
                     return true
                 end
@@ -202,9 +202,6 @@ function fo_cancelForm()
 
     return false
 end
-
-
-
 
 -- ==========================================================
 -- Form Specific Spellcasts (Refactored)
@@ -245,7 +242,6 @@ function fo_caster(helpSpell, harmSpell, arg3, arg4)
     end
 end
 
-
 -- ==========================================================
 -- DRUID Status
 -- ==========================================================
@@ -280,23 +276,23 @@ fo_spellPermissions     = {
     ["teleport: moonglade"] = 7,
 
     -- Restoration Special (Human and Tree ONLY)
-    ["abolish poison"]     = 3, -- f_human + f_tree
-    ["cure poison"]        = 3,
-    ["nature's swiftness"] = 3,
-    ["regrowth"]           = 3,
-    ["rejuvenation"]       = 3,
-    ["swiftmend"]          = 3,
-    ["tranquility"]        = 3,
+    ["abolish poison"]      = 3, -- f_human + f_tree
+    ["cure poison"]         = 3,
+    ["nature's swiftness"]  = 3,
+    ["regrowth"]            = 3,
+    ["rejuvenation"]        = 3,
+    ["swiftmend"]           = 3,
+    ["tranquility"]         = 3,
 
     -- Balance Special (Human and Moonkin ONLY)
-    ["wrath"]              = 5, -- f_human + f_moonkin
-    ["starfire"]           = 5,
-    ["moonfire"]           = 5,
-    ["insect swarm"]       = 5,
-    ["hurricane"]          = 5,
+    ["wrath"]               = 5, -- f_human + f_moonkin
+    ["starfire"]            = 5,
+    ["moonfire"]            = 5,
+    ["insect swarm"]        = 5,
+    ["hurricane"]           = 5,
 
     -- Human Only
-    ["healing touch"]      = 1, -- F_HUMAN
+    ["healing touch"]       = 1, -- F_HUMAN
 }
 
 -- 2. FERAL REQUIREMENTS (Bear, Cat, or Both)
@@ -335,7 +331,7 @@ fo_formRequirements     = {
 -- 2. Auto-Shapeshifting based on spell requirements
 -- 3. Form-based permissions using bitwise flags
 local lastFRMessageTime = 0
-function druidFilter(spellName)
+function fo_druidFilter(spellName)
     -- Normalize input to lowercase
     local name = string.lower(spellName or "")
     if name == "" then return true end
@@ -471,6 +467,5 @@ end
 -- [[ Filter Registration ]]
 local _, class = UnitClass("player")
 if class == "DRUID" then
-    fo_registerFilter(druidFilter)
+    fo_registerFilter(fo_druidFilter)
 end
-
