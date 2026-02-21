@@ -1,28 +1,78 @@
 -- ==========================================================
--- Form Detection 
+-- Universal Unit Texture Checker
 -- ==========================================================
+-- @param unit: "player", "target", "mouseover" etc.
+-- @param texturePart: String to search for.
+-- @return boolean: true if found.
+function fo_hasTexture(unit, texturePart)
+    if not UnitExists(unit) then return false end
+
+    -- Buffs and Debuffs are stored differently in 1.12.
+    -- We check both to be safe and universal.
+    local types = { "HELPFUL", "HARMFUL" }
+
+    for _, auraType in pairs(types) do
+        for i = 0, 31 do
+            -- Note: GetPlayerBuff is only for "player".
+            -- For other units, we use UnitBuff / UnitDebuff.
+            local texture
+            if unit == "player" and auraType == "HELPFUL" then
+                -- Player buffs are special in 1.12 for more detailed info,
+                -- but UnitBuff works for textures too.
+                texture = UnitBuff(unit, i + 1)
+            elseif auraType == "HELPFUL" then
+                texture = UnitBuff(unit, i + 1)
+            else
+                texture = UnitDebuff(unit, i + 1)
+            end
+
+            if not texture then break end
+            if string.find(texture, texturePart) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- ==========================================================
+-- Form Detection Aliases
+-- Description: Simple shorthand functions for Druid forms
+-- ==========================================================
+
+-- Internal helper to check presence of a texture by name (case-insensitive)
+local function _hasTex(texName)
+    -- Using the existing fo_hasTexture logic but simplified for internal use
+    for i = 1, 32 do
+        local b = UnitBuff("player", i)
+        if not b then break end
+        if string.find(string.lower(b), string.lower(texName)) then return true end
+    end
+    return false
+end
+
 function fo_isBear()
-    return fo_aura("Ability_Racial_BearForm")
+    return _hasTex("Ability_Racial_BearForm") or _hasTex("Ability_Druid_BearForm")
 end
 
 function fo_isCat()
-    return fo_aura("Ability_Druid_CatForm")
+    return _hasTex("Ability_Druid_CatForm")
 end
 
 function fo_isTravel()
-    return fo_aura("Ability_Druid_TravelForm")
+    return _hasTex("Ability_Druid_TravelForm")
 end
 
 function fo_isAqua()
-    return fo_aura("Ability_Druid_AquaticForm")
+    return _hasTex("Ability_Druid_AquaticForm")
 end
 
 function fo_isMoonkin()
-    return fo_aura("Spell_Nature_ForceOfNature")
+    return _hasTex("Spell_Nature_ForceOfNature")
 end
 
 function fo_isTree()
-    return fo_aura("Ability_Druid_TreeofLife")
+    return _hasTex("Ability_Druid_TreeofLife")
 end
 
 function fo_isFeral()
@@ -36,13 +86,25 @@ end
 -- ==========================================================
 -- Spammable Shapeshift Script
 -- ==========================================================
+local function GetBestBearForm()
+    local i = 1
+    while true do
+        local name = GetSpellName(i, "spell")
+        if not name then break end
+        if name == "Dire Bear Form" then
+            return "Dire Bear Form"
+        end
+        i = i + 1
+    end
+    return "Bear Form"
+end
+
 function fo_castBearForm()
     if fo_isBear() then
         return
-    elseif fo_hasSpell('Dire Bear Form') then
-        fo_cast('Dire Bear Form')
-    else fo_cast('Bear Form')
     end
+    local bestForm = GetBestBearForm()
+    fo_cast(bestForm)
 end
 
 function fo_castCatForm()
@@ -81,76 +143,67 @@ function fo_castTreeForm()
 end
 
 
--- ==========================================================
--- Cancel Form Script
--- ==========================================================
--- Description: Cancels any active Druid shapeshift form.
--- Drectly cancells the buff
--- then falls back to CastShapeshiftForm if the buff is not found.
+FO_DRUID_FORMS = { "Bear Form", "Cat Form", "Aquatic Form", "Travel Form", "Moonkin Form", "Tree of Life Form" }
+
+-- Function to return to Caster Form by cancelling any active shapebuff
 function fo_cancelForm()
-    local found = false
+    -- [1] Find the currently active shapeshift form index
+    local currentFormIndex = nil
+    for i = 1, GetNumShapeshiftForms() do
+        local _, _, active = GetShapeshiftFormInfo(i)
+        if active then
+            currentFormIndex = i
+            break
+        end
+    end
 
-    -- 1. Try to cancel the form by scanning active buffs
-    -- This method works even when stunned or silenced (CC'd)
+    -- If no form is active, exit early
+    if not currentFormIndex then return false end
+
+    -- [2] Count current buffs (Limit: 32)
+    local buffCount = 0
     for i = 0, 31 do
-        local id = GetPlayerBuff(i, "HELPFUL")
+        if GetPlayerBuff(i, "HELPFUL") ~= -1 then
+            buffCount = buffCount + 1
+        else
+            break
+        end
+    end
 
-        -- Check if a valid buff exists in this slot
-        if (id and id ~= -1) then
-            local tex = GetPlayerBuffTexture(id)
+    -- [3] Strategy A: If buff count < 32, use direct buff cancellation
+    if buffCount < 32 then
+        for i = 0, 31 do
+            local id = GetPlayerBuff(i, "HELPFUL")
+            if id == -1 then break end
+
+            fo_scanner:ClearLines()
+            fo_scanner:SetPlayerBuff(id)
             
-            -- Identify form buffs by checking the texture path keywords
-            -- Using partial matches to cover different ranks and racial icons
-            if tex and (string.find(tex, "BearForm") or 
-                        string.find(tex, "CatForm") or 
-                        string.find(tex, "TravelForm") or 
-                        string.find(tex, "AquaticForm") or
-                        string.find(tex, "MoonkinForm") or
-                        string.find(tex, "TreeOfLifeForm")) then
-
-                -- Cancel the buff by its dynamic index
-                CancelPlayerBuff(id)
-                found = true
-                break -- Exit loop once the form is found and cancelled
+            local textObj = _G[fo_scanner:GetName() .. "TextLeft1"]
+            local name = (textObj and textObj:GetText()) or ""
+            
+            -- Compare name with form keywords
+            local nameLower = string.lower(name)
+            for _, formName in pairs(FO_DRUID_FORMS) do
+                if string.find(nameLower, string.lower(formName)) then
+                    CancelPlayerBuff(id)
+                    return true
+                end
             end
         end
     end
 
-    -- 2. Fallback: If no buff was found (e.g., buff slot limit reached)
-    -- Attempt to cancel via the shapeshift bar (does not work while stunned)
-    if not found then
-        for i = 1, GetNumShapeshiftForms() do
-            local _, _, active = GetShapeshiftFormInfo(i)
-            if active then
-                -- Casting the active form again toggles it off
-                CastShapeshiftForm(i)
-                found = true
-                break
-            end
-        end
+    -- [4] Strategy B: Fallback to casting the form spell
+    local _, formName = GetShapeshiftFormInfo(currentFormIndex)
+    if formName then
+        CastSpellByName(formName)
+        return true
     end
 
-    return found
+    return false
 end
 
 
-
-
-function listMyBuffIndices()
-    for i = 0, 23 do
-        -- i はスロット番号、index は APIで操作するためのID
-        local index = GetPlayerBuff(i, "HELPFUL")
-        
-        -- index が -1 でなければ、そこにバフが存在する
-        if (index > -1) then
-            -- インデックスを使ってテクスチャパスを取得（名前判定の代わり）
-            local texture = GetPlayerBuffTexture(index)
-            
-            -- デバッグ表示
-            DEFAULT_CHAT_FRAME:AddMessage("Slot: "..i.." | Index: "..index.." | Texture: "..texture)
-        end
-    end
-end
 
 
 -- ==========================================================
@@ -282,7 +335,7 @@ fo_formRequirements     = {
 -- 2. Auto-Shapeshifting based on spell requirements
 -- 3. Form-based permissions using bitwise flags
 local lastFRMessageTime = 0
-local function druidFilter(spellName)
+function druidFilter(spellName)
     -- Normalize input to lowercase
     local name = string.lower(spellName or "")
     if name == "" then return true end

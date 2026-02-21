@@ -9,7 +9,7 @@ end
 
 -- keywords used to identify forms/stances in tooltips
 -- Used by the scanner to identify buffs that should prevent auto-unshifting
-FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal", "Shapeshift" }
+FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal"}
 
 
 -- ==========================================================
@@ -165,14 +165,11 @@ function fo_getPureName(spellName)
     return _GetPureName(spellName)
 end
 
-
 --- Interceptor
 fo_castFilters = {}
 function fo_registerFilter(func)
     table.insert(fo_castFilters, func)
 end
-
-
 
 -- ==========================================================
 -- HYBRID DUAL CAST
@@ -201,11 +198,6 @@ function fo_castDual(helpSpell, harmSpell, ...)
     fo_cast(spell, unpack(arg))
 end
 
-
-
-
-
-
 -- ==========================================================
 -- CORE CASTING FUNCTION (With Immediate Nil Guard)
 -- ==========================================================
@@ -213,7 +205,7 @@ function fo_cast(spellName, ...)
     -- [1] Capture arguments using the built-in 'arg' table
     -- In Lua 5.0, 'arg' is automatically created for any vararg function.
     -- We've confirmed 'arg' can be used directly.
-    local args = arg 
+    local args = arg
     if not spellName or spellName == "" then return end
 
     -- [2] Filter Check (e.g., Shapeshift/Stance checks)
@@ -237,10 +229,7 @@ function fo_cast(spellName, ...)
 
     -- [6] Execution
     CastSpellByName(spellName, target)
-
 end
-
-
 
 -- Hybrid Dual Cast (Re-implemented using the Logic Engine)
 function fo_castDual(helpSpell, harmSpell, ...)
@@ -295,7 +284,7 @@ local function _CheckAuraByName(spellName, unit)
                     return true
                 end
             end
-            
+
             i = i + 1
             if i > 32 then break end
         end
@@ -331,9 +320,6 @@ end
 function fo_auraSelf(spellName)
     return _CheckAuraByName(_GetPureName(spellName), "player")
 end
-
-
-
 
 -- ==========================================================
 -- RESOURCE CHECKER (Standardized & Fixed)
@@ -427,12 +413,6 @@ end
 function fo_RSUnit(input, unit)
     return _ResourceLogic(input, nil, nil, unit or "target")
 end
-
-
-
-
-
-
 
 -- ==========================================================
 -- Coolddown Checker
@@ -561,7 +541,6 @@ function fo_hasSpell(spellName)
     return false
 end
 
-
 -- Max Rank Finder
 -- Scans the player's spellbook to find the highest available rank of a spell
 function fo_getMaxRank(spellName)
@@ -580,7 +559,6 @@ function fo_getMaxRank(spellName)
     end
     return maxRank > 0 and maxRank or 1
 end
-
 
 -- ==========================================================
 -- Combat Utilities
@@ -693,7 +671,7 @@ function fo_startShoot()
     for i = 1, 5 do
         local leftObj = getglobal("FoAuraScannerTextLeft" .. i)
         local rightObj = getglobal("FoAuraScannerTextRight" .. i)
-        
+
         -- Use 'and' to check object existence before calling :GetText()
         local left = (leftObj and leftObj:GetText()) or ""
         local right = (rightObj and rightObj:GetText()) or ""
@@ -712,7 +690,6 @@ function fo_startShoot()
 
     if spell then CastSpellByName(spell) end
 end
-
 
 -- Stops all current actions: Spell casting, Channeling, Auto-Attack, and Shooting.
 function fo_break()
@@ -857,8 +834,6 @@ function fo_item(name)
     return true
 end
 
-
-
 -- Automatically finds and uses the highest priority bandage in your bags.
 function fo_bandage(targetArg) -- [FIX] Added targetArg here
     -- Priority list of bandages
@@ -965,11 +940,6 @@ function fo_manaPot()
     return _fo_ScanAndUseItem(list, "Mana Potion")
 end
 
-
-
-
-
-
 -- ==========================================================
 -- Dismount Logic
 -- ==========================================================
@@ -1017,7 +987,7 @@ function fo_dismount()
                         fo_scanner:ClearLines()
                         fo_scanner:SetPlayerBuff(id)
                     end)
-                    
+
                     if ok then
                         local buffName = (FoAuraScannerTextLeft1 and FoAuraScannerTextLeft1:GetText()) or ""
                         local buffNameLower = string.lower(buffName)
@@ -1043,7 +1013,6 @@ function fo_dismount()
     end
     return false
 end
-
 
 -- ==========================================================
 -- Spell Announcer: Logic & Registration
@@ -1121,7 +1090,7 @@ function fo_autoRankDual(helpSpell, harmSpell, lowHelpRank, midHelpRank, highHel
     lowThreshold = lowThreshold or "25%"
     midThreshold = midThreshold or "50%"
 
-    local heal = fo_getPureName(helpSpell)
+    local heal   = fo_getPureName(helpSpell)
 
     -- Rank decision
     local rank
@@ -1140,17 +1109,13 @@ function fo_autoRankDual(helpSpell, harmSpell, lowHelpRank, midHelpRank, highHel
     else
         spellString = heal .. "(Rank " .. rank .. ")"
     end
-    
+
     -- Debug Output
     -- Added logic for checking output in chat
-    -- print("[Debug] Casting: " .. spellString .. " (Thresholds: " .. lowThreshold .. ", " .. midThreshold .. ")")    
+    -- print("[Debug] Casting: " .. spellString .. " (Thresholds: " .. lowThreshold .. ", " .. midThreshold .. ")")
     -- Execute
     fo_castDual(spellString, harmSpell)
 end
-
-
-
-
 
 -- ==========================================================
 -- MAIN EVENT HANDLER (Integrated & Fixed)
