@@ -25,5 +25,3 @@ fo_DefaultSettings = {
         ["swipe"] = true,
     },
 }
-
-

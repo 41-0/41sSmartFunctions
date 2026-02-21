@@ -1104,7 +1104,64 @@ local function ExecuteTauntAnnounce(combatLogMsg)
     end
 end
 
+local function ExecuteTauntAnnounce(combatLogMsg)
+    -- Guard 1: Talent reset / Global lock
+    -- If FO_IsLocked is not defined yet, you can comment this line out temporarily
+    if FO_IsLocked then return end
+    
+    -- Guard 2: Monitor ONLY while in combat AND in a group
+    -- GetNumPartyMembers() and GetNumRaidMembers() check group status
+    local inGroup = (GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0)
+    if not UnitAffectingCombat("player") or not inGroup then 
+        return 
+    end
+    
+    -- Guard 3: Validation
+    if not combatLogMsg or not fo_Settings or not fo_Settings.announceTauntResist then 
+        return 
+    end
 
+    -- Guard 4: Protected execution
+    local status = pcall(function()
+        local lowerLog = string.lower(combatLogMsg)
+
+        -- 1. Identify if a taunt spell is in the log
+        local foundSpell = nil
+        for spell, _ in pairs(fo_Settings.tauntSpells) do
+            if string.find(lowerLog, spell) then
+                foundSpell = spell
+                break
+            end
+        end
+
+        if not foundSpell then return end
+
+        -- 2. Detect failure types
+        local failureKeywords = { "resisted", "missed", "dodged", "parried", "immune" }
+        local foundFail = nil
+        for _, word in pairs(failureKeywords) do
+            if string.find(lowerLog, word) then
+                foundFail = string.upper(word)
+                break
+            end
+        end
+
+        -- 3. Output announcement
+        if foundFail then
+            local displayName = "[" .. ToTitleCase(foundSpell) .. "]"
+            local finalMsg = displayName .. " " .. foundFail .. "!"
+            local channel = GetBestChannel()
+            
+            if channel == "PRINT" then
+                DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[Taunt Alert]:|r " .. finalMsg)
+            else
+                SendChatMessage(finalMsg, channel)
+            end
+        end
+    end)
+    
+    if not status then return end
+end
 
 
 
@@ -1149,6 +1206,7 @@ function fo_autoRankDual(helpSpell, harmSpell, lowHelpRank, midHelpRank, highHel
     fo_castDual(spellString, harmSpell)
 end
 
+
 -- ==========================================================
 -- MAIN EVENT HANDLER (Integrated & Fixed)
 -- ==========================================================
@@ -1156,12 +1214,11 @@ local f = CreateFrame("Frame")
 
 -- [1] Utility Events
 f:RegisterEvent("VARIABLES_LOADED")
--- [2] Combat & Taunt Events
-f:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
-
+-- [2] Combat State Events for Dynamic Registration
+f:RegisterEvent("PLAYER_REGEN_DISABLED")
+f:RegisterEvent("PLAYER_REGEN_ENABLED")
 
 f:SetScript("OnEvent", function()
-    -- 1.12では引数を使わず、グローバルな event / arg1 を直接参照するのが最も安全です
     local event = event
     local a1 = arg1
 
@@ -1185,9 +1242,23 @@ f:SetScript("OnEvent", function()
         return
     end
 
-    -- CASE 3: Combat Log Monitoring
+    -- CASE 2: Dynamic Combat Log Monitoring
+    -- We register the combat log event only when entering combat 
+    -- to prevent memory corruption during talent resets or reloads.
+    if event == "PLAYER_REGEN_DISABLED" then
+        f:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
+        return
+    end
+    
+    if event == "PLAYER_REGEN_ENABLED" then
+        f:UnregisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
+        return
+    end
+
+    -- CASE 3: Process Combat Log
     if event == "CHAT_MSG_SPELL_SELF_DAMAGE" then
-        if fo_Settings and fo_Settings.announceTauntResist and fo_Settings.tauntSpells then
+        -- Safety Guard: Ensure we are still in combat and settings are valid
+        if UnitAffectingCombat("player") and fo_Settings and fo_Settings.tauntSpells and fo_Settings.announceTauntResist then
             ExecuteTauntAnnounce(a1)
         end
         return
