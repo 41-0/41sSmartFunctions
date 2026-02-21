@@ -209,20 +209,20 @@ function fo_dualLogic(helpVal, harmVal, unit)
     return helpVal
 end
 
--- Main entry point for hybrid macros.
-function fo_castDual(helpSpell, harmSpell, ...)
-    -- 1. Identify target via SmartTarget (handles "m", "d", "s" flags).
-    local unit = _GetSmartTarget(helpSpell, arg)
+-- -- Main entry point for hybrid macros.
+-- function fo_castDual(helpSpell, harmSpell, ...)
+--     -- 1. Identify target via SmartTarget (handles "m", "d", "s" flags).
+--     local unit = _GetSmartTarget(helpSpell, arg)
 
-    -- 2. "d" flag guard: Stop if no valid target found to prevent auto-self cast.
-    if not unit then return end
+--     -- 2. "d" flag guard: Stop if no valid target found to prevent auto-self cast.
+--     if not unit then return end
 
-    -- 3. Select appropriate spell based on target reaction.
-    local spell = fo_dualLogic(helpSpell, harmSpell, unit)
+--     -- 3. Select appropriate spell based on target reaction.
+--     local spell = fo_dualLogic(helpSpell, harmSpell, unit)
 
-    -- 4. Relay to fo_cast for final execution and PCC check.
-    fo_cast(spell, unpack(arg))
-end
+--     -- 4. Relay to fo_cast for final execution and PCC check.
+--     fo_cast(spell, unpack(arg))
+-- end
 
 -- ==========================================================
 -- CORE CASTING FUNCTION (With Immediate Nil Guard)
@@ -231,7 +231,7 @@ function fo_cast(spellName, ...)
     -- [1] Capture arguments using the built-in 'arg' table
     -- In Lua 5.0, 'arg' is automatically created for any vararg function.
     -- We've confirmed 'arg' can be used directly.
-    local args = arg
+    local args = arg or {}
     if not spellName or spellName == "" then return end
 
     -- [2] Filter Check (e.g., Shapeshift/Stance checks)
@@ -250,7 +250,7 @@ function fo_cast(spellName, ...)
 
     -- [4] Target Resolution
     -- Use the captured 'args' for smart targeting logic.
-    local target = _GetSmartTarget(spellName, args)
+    local target = _GetSmartTarget(spellName, unpack(args))
     if not target then return end
 
     -- [6] Execution
@@ -260,7 +260,9 @@ end
 -- Hybrid Dual Cast (Re-implemented using the Logic Engine)
 function fo_castDual(helpSpell, harmSpell, ...)
     -- 1. Identify the target unit using the shared engine (resolves m, d, s, etc.)
-    local unit = _GetSmartTarget(helpSpell, arg)
+    local args = arg or {}
+
+    local unit = _GetSmartTarget(helpSpell, unpack(args))
 
     -- 2. Guard: If "d" is set and no target is found, stop immediately to prevent auto-self cast.
     if not unit then return end
@@ -270,7 +272,7 @@ function fo_castDual(helpSpell, harmSpell, ...)
 
     -- 4. Relay the final decision to fo_cast for execution and PCC handling.
     -- We unpack the original arguments to ensure PCC options are passed.
-    fo_cast(spell, unit, unpack(arg))
+    fo_cast(spell, unit, unpack(args))
 end
 
 -- ==========================================================

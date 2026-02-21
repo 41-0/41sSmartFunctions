@@ -208,39 +208,50 @@ end
 -- ==========================================================
 
 -- Bear / Dire Bear Form
-function fo_bear(spellName, arg2, arg3)
+function fo_bear(spellName, ...)
     if fo_isBear() then
-        fo_cast(spellName, arg2, arg3)
+        local args = arg or {}
+        fo_cast(spellName, unpack(args))
     end
 end
 
 -- Cat Form
-function fo_cat(spellName, arg2, arg3)
+function fo_cat(spellName, ...)
     if fo_isCat() then
-        fo_cast(spellName, arg2, arg3)
+        local args = arg or {}
+        fo_cast(spellName, unpack(args))
     end
 end
+
 
 -- Moonkin Form (Dual support)
-function fo_moonkin(helpSpell, harmSpell, arg3, arg4)
+function fo_moonkin(helpSpell, harmSpell, ...)
     if fo_isMoonkin() then
-        fo_castDual(helpSpell, harmSpell, arg3, arg4)
+        local args = arg or {}
+        fo_castDual(helpSpell, harmSpell, unpack(args))
     end
 end
+
 
 -- Tree of Life Form (Dual support)
-function fo_tree(helpSpell, harmSpell, arg3, arg4)
+function fo_tree(helpSpell, harmSpell, ...)
     if fo_isTree() then
-        fo_castDual(helpSpell, harmSpell, arg3, arg4)
+        local args = arg or {}
+        fo_castDual(helpSpell, harmSpell, unpack(args))
     end
 end
 
+
 -- Humanoid (Caster) Form (Dual support)
-function fo_caster(helpSpell, harmSpell, arg3, arg4)
+-- Moonkin Form (Dual support)
+function fo_caster(helpSpell, harmSpell, ...)
     if fo_isCaster() then
-        fo_castDual(helpSpell, harmSpell, arg3, arg4)
+        local args = arg or {}
+        fo_castDual(helpSpell, harmSpell, unpack(args))
     end
 end
+
+
 
 -- ==========================================================
 -- DRUID Status
