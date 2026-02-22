@@ -90,6 +90,8 @@ By default, the system follows a 3-step priority to ensure you never lose a beat
 
 ```
 
+If you can write if ~ then scripts, [Aura Checker](#-aura-checker-fo_aura), [Resource Checker](#-resource-checker-fo_rs) and much more are available!!
+
 <BR><BR>
 
 ## <a id="combat"></a>⚔️Combat Utilities
@@ -290,8 +292,6 @@ Examples
 /script fo_caster('healing touch(rank 4)', 'wrath')
 
 ```
-
-If you can write if ~ then scripts, [Aura Checker](#-aura-checker-fo_aura), [Resource Checker](#-resource-checker-fo_rs) and much more are available!!
 
 ### Shapeshifting
 
