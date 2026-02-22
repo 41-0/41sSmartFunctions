@@ -114,7 +114,7 @@ A non-toggling StartAttack function. It prevents the common Vanilla issue where 
 
 A unified shooting function designed for servers with specific weapon skills (like "Shoot Bow", "Shoot Gun", etc.).
 
-- **Universal Support**: Automatically detects whether you should use `Shoot` (Wand), `Shoot Bow`, `Shoot Crossbow`, or `Shoot Gun`.
+- **Universal Support**: Automatically detects whether you should use `Shoot` (Wand), `Shoot Bow`, `Shoot Crossbow`, `Shoot Gun`, or `Throw`.
 - **Anti-Toggle**: Specifically for Wands, this function ensures that spamming the macro will **not** stop your shooting animation.
 
 ### 📝 Macro Example
