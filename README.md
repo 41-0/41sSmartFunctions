@@ -98,8 +98,8 @@ By default, the system follows a 3-step priority to ensure you never lose a beat
 
 A non-toggling StartAttack function. It prevents the common Vanilla issue where spamming an attack macro turns the attack off.
 
-- **`force`**: (Optional) If set to `1`, starts attacking even if you are Stealthed/Shadowmelded (breaking the effect).
 - **Stealth Protection**: By default, it will **not** start attacking if you are in Stealth or Shadowmeld.
+- **`force`**: (Optional) If set to `1`, starts attacking even if you are Stealthed/Shadowmelded (breaking the effect).
 
 **Example:**
 
