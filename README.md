@@ -1,6 +1,6 @@
 # 41's Smart Functions
 
-**The Essential Utility Library for TWoW**
+**The Essential Macro Script Library for TWoW**
 
 **Note: This AddOn is compatible with the English Client ONLY. Spell names and aura checks are hardcoded in English.**
 
