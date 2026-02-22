@@ -18,10 +18,9 @@
 - [Aura Checker (fo_aura)](#-aura-checker-fo_aura)
 - [Resource Checker (fo_RS)](#resource-checker)
 - [Cooldown Checker](#cd-checker)
-- [Status / Equipment Checker](#boolean-checkers)
+- [Status / Equipment Checker](#status-equipment-checkers)
 
 7. [Installation](#installation)
-
 
 <BR><BR>
 
@@ -42,7 +41,6 @@ The engine automatically handles Mouseover, Target, and Self-cast logic.
 
 #### [!IMPORTANT] Always place the Helpful spell first (left) and the Harmful spell second (right).
 
-
 ## <a id="sts"></a>🎯 Smart Target System (STS)
 
 Many function in this addon shares the **STS** logic. This universal targeting engine manages how spells and items are directed, from friendly heals to hostile DoTs.
@@ -62,13 +60,13 @@ By default, the system follows a 3-step priority to ensure you never lose a beat
 
 ### 🚩 Targeting Flags & Overrides
 
-| Flag / Input | Mode | Description |
-| --- | --- | --- |
-| *(None)* | **Smart Support** | `MO(Friend) > Target > Self` |
-| **`"m"`** | **Smart w/ Hostile MO** | `MO(Friend/Enemy) > Target > Self`. |
-| **`"d"`** | **Disable Self** | `MO > Target`. |
-| **`"s"`** | **Fixed Self** | Forces action on **Player** only. |
-| **`"party1" etc`** | **Fixed Unit** | Directly targets a specific **WoW UnitID**. Note "mouseover" is a wow unitID(fixed). |
+| Flag / Input       | Mode                    | Description                                                                          |
+| ------------------ | ----------------------- | ------------------------------------------------------------------------------------ |
+| _(None)_           | **Smart Support**       | `MO(Friend) > Target > Self`                                                         |
+| **`"m"`**          | **Smart w/ Hostile MO** | `MO(Friend/Enemy) > Target > Self`.                                                  |
+| **`"d"`**          | **Disable Self**        | `MO > Target`.                                                                       |
+| **`"s"`**          | **Fixed Self**          | Forces action on **Player** only.                                                    |
+| **`"party1" etc`** | **Fixed Unit**          | Directly targets a specific **WoW UnitID**. Note "mouseover" is a wow unitID(fixed). |
 
 ---
 
@@ -135,7 +133,6 @@ A fail-safe stealth function that ensures you enter shadows without the risk of 
 - **Anti-Toggle Protection**: Unlike the default stealth buttons, spamming this function will **never** cancel your stealth. It only activates the ability if you are currently visible.
 - **Multi-Class Support**: Automatically detects and uses the appropriate ability for your character, supporting **Stealth** (Rogue), **Prowl** (Druid), and **Shadowmeld** (Night Elf).
 
-
 <BR>
 
 ### 4. `fo_break()`
@@ -149,36 +146,20 @@ Stops your casting (not channeling), auto attack, shoot.
 /script fo_cast('counterspell', 1)
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <BR>
 
 ### 5. Taunt Resist Announcements
 
-Automatically notifies your group when your taunt-related abilities are resisted or fail to land. 
+Automatically notifies your group when your taunt-related abilities are resisted or fail to land.
 
-* **How it works**: Monitors your combat log and announces failures (Resist, Miss, Dodge, Parry, Immune) to the appropriate channel (Party, Raid, or Instance).
-* **Supported Spells**:
-* **Warrior**: Taunt, Mocking Blow
-* **Druid**: Growl
-* **Paladin**: Hand of Reckoning
-* **Shaman**: Earthshaker Slam
+- **How it works**: Monitors your combat log and announces failures (Resist, Miss, Dodge, Parry, Immune) to the appropriate channel (Party, Raid, or Instance).
+- **Supported Spells**:
+- **Warrior**: Taunt, Mocking Blow
+- **Druid**: Growl
+- **Paladin**: Hand of Reckoning
+- **Shaman**: Earthshaker Slam
 
-* **Toggle**: Can be enabled or disabled via the **General** tab in the settings menu.
+- **Toggle**: Can be enabled or disabled via the **General** tab in the settings menu.
 
 <BR>
 
@@ -204,14 +185,12 @@ Full syntax:
 /script if not fo_aura('rejuvenation') then fo_autoRankDual("rejuvenation", "insect swarm", 3, 5, "max", "30%", "60%")
 ```
 
-
 ```lua
--- Custom thresholds: 
+-- Custom thresholds:
 -- Ranks 3/5/Max used at 30% and 60% Life Deficit.
 -- NOTE: Accepts strings (e.g., "30%") or raw numbers (e.g., 1000).
 /script fo_autoRankDual("Healing Touch", "Wrath", 3, 5, "max", "30%", "60%")
 ```
-
 
 <BR><BR>
 
@@ -221,10 +200,10 @@ This module provides a unified interface for using items, whether they are consu
 
 ### 🛠️ Core Item Functions
 
-| Function | Description |
-| --- | --- |
-| `fo_item("name")` | **The Universal Item Tool.** Scans equipment slots first, then bags. It includes a built-in safety check to prevent "Not Ready" spam if the item is on cooldown. |
-| `fo_itemCD("name")` | A utility function that returns `true` if the specified item (equipped or in bags) is on Cooldown. |
+| Function            | Description                                                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fo_item("name")`   | **The Universal Item Tool.** Scans equipment slots first, then bags. It includes a built-in safety check to prevent "Not Ready" spam if the item is on cooldown. |
+| `fo_itemCD("name")` | A utility function that returns `true` if the specified item (equipped or in bags) is on Cooldown.                                                               |
 
 `fo_item` mimics the standard "Right-Click" behavior of your inventory
 
@@ -238,15 +217,15 @@ These functions automate the selection of the best available consumable in your 
 
 Automatically scans your bags and uses the **highest-tier** potion available.
 
-* **Logic**: Priority flows from Major → Superior → Greater → Standard → Lesser → Minor.
-* **Efficiency**: Saves macro space by using one command for all tiers of potions.
+- **Logic**: Priority flows from Major → Superior → Greater → Standard → Lesser → Minor.
+- **Efficiency**: Saves macro space by using one command for all tiers of potions.
 
 #### `fo_bandage()`
 
 Prioritizes using the best bandage in your inventory.
 
-* **Smart Target**: Follows Smart Targeting System.
-* **Priority**: Heavy Runecloth → Runecloth → Heavy Mageweave, etc.
+- **Smart Target**: Follows Smart Targeting System.
+- **Priority**: Heavy Runecloth → Runecloth → Heavy Mageweave, etc.
 
 ---
 
@@ -262,7 +241,7 @@ Use your most powerful defensive item if available; otherwise, fallback to a sta
 ```
 
 **2. Trinket & Spell Combo**
-Activate a specific trinket (like *Zandalarian Hero Charm*) only if it's ready, then proceed to cast your main spell.
+Activate a specific trinket (like _Zandalarian Hero Charm_) only if it's ready, then proceed to cast your main spell.
 
 ```lua
 /script fo_item("Zandalarian")
@@ -282,15 +261,8 @@ Use a bandage only if you are out of combat or have a specific window, without w
 
 To keep you informed without cluttering your screen, the item system uses two types of notifications:
 
-* **Missing Items**: Displayed in the **Chat Frame** (e.g., `[fo] Item not found: Heavy Runecloth Bandage`).
-* **Cooldowns**: Displayed as a **Yellow Warning** in the center of the screen (e.g., `Celestial Orb is not ready yet`), suppressing the default red text spam and system error sounds.
-
-
-
-
-
-
-
+- **Missing Items**: Displayed in the **Chat Frame** (e.g., `[fo] Item not found: Heavy Runecloth Bandage`).
+- **Cooldowns**: Displayed as a **Yellow Warning** in the center of the screen (e.g., `Celestial Orb is not ready yet`), suppressing the default red text spam and system error sounds.
 
 ---
 
@@ -337,14 +309,14 @@ Spam-safe shapeshifting. Unlike standard buttons, these will NOT cancel the form
 
 These return true or false. Use them for custom `/script if` logic.
 
-- `fo_isBear()`     — True if in Bear or Dire Bear Form.
-- `fo_isCat()`      — True if in Cat Form.
-- `fo_isTravel()`   — True if in Travel Form.
-- `fo_isAqua()`     — True if in Aquatic Form.
-- `fo_isMoonkin()`  — True if in Moonkin Form.
-- `fo_isTree()`     — True if in Tree of Life Form.
-- `fo_isFeral()`    — True if in Bear or Cat Form.
-- `fo_isCaster()`   — True if in Humanoid Form (no active shapeshift).
+- `fo_isBear()` — True if in Bear or Dire Bear Form.
+- `fo_isCat()` — True if in Cat Form.
+- `fo_isTravel()` — True if in Travel Form.
+- `fo_isAqua()` — True if in Aquatic Form.
+- `fo_isMoonkin()` — True if in Moonkin Form.
+- `fo_isTree()` — True if in Tree of Life Form.
+- `fo_isFeral()` — True if in Bear or Cat Form.
+- `fo_isCaster()` — True if in Humanoid Form (no active shapeshift).
 
 ### Feature: Auto Cancelform/Shapeshift and Form Protection
 
@@ -357,8 +329,6 @@ All core features can be toggled via the In-game Configuration Panel.
 
 **Note:** These features only apply to spells triggered via this addon's scripts (e.g., `/script fo_cast()`). Standard action bar buttons remain unaffected to preserve vanilla-like control when needed.
 
-
-
 ---
 
 <BR><BR><BR>
@@ -367,24 +337,20 @@ All core features can be toggled via the In-game Configuration Panel.
 
 For users who want to build complex custom macros, here is the complete list of available functions.
 
-
-
-
-
 ## 🔍 Aura Checker (`fo_aura`)
 
 The Aura Checker ensures your macros are "aware" of active buffs and debuffs. It prevents mana waste by stopping you from clipping DoTs or overwriting active HoTs.
 
 ### Key Features
 
-* **Smart Targeting System**: Follows STS.
-* **Auto-Rank Filtering**: Automatically strips rank data (e.g., `"Regrowth(Rank 5)"` is treated as `"Regrowth"`).
-* **Texture Support**: Match by name (local) or texture path (global) to avoid localization issues.
+- **Smart Targeting System**: Follows STS.
+- **Auto-Rank Filtering**: Automatically strips rank data (e.g., `"Regrowth(Rank 5)"` is treated as `"Regrowth"`).
+- **Texture Support**: Match by name (local) or texture path (global) to avoid localization issues.
 
 ### 🛠️ API Reference
 
-| Function | Description | Example |
-| --- | --- | --- |
+| Function                   | Description                                     | Example            |
+| -------------------------- | ----------------------------------------------- | ------------------ |
 | **`fo_aura("name", ...)`** | Follows STS logic. "s", "m", "WoWUnitID" works. | `fo_aura("Renew")` |
 
 > [!TIP]
@@ -393,10 +359,10 @@ The Aura Checker ensures your macros are "aware" of active buffs and debuffs. It
 
 #### Arguments:
 
-* **`spellName`**: The name of the buff/debuff or its **Texture Path**.
-* **Name Match**: Use the display name (e.g., `"Moonfire"`).
-* **Texture Match**: Use the internal icon name (e.g., `"Spell_Nature_Starfall"`).
-* **🔍 Texture ID**: Use `/script fo_showTargetTexture()` to print active texture names to chat.
+- **`spellName`**: The name of the buff/debuff or its **Texture Path**.
+- **Name Match**: Use the display name (e.g., `"Moonfire"`).
+- **Texture Match**: Use the internal icon name (e.g., `"Spell_Nature_Starfall"`).
+- **🔍 Texture ID**: Use `/script fo_showTargetTexture()` to print active texture names to chat.
 
 ---
 
@@ -421,10 +387,6 @@ The Aura Checker ensures your macros are "aware" of active buffs and debuffs. It
 
 <BR><BR>
 
-
-
-
-
 ## <a id="resource-checker"></a>📊 Resource Scanner (`fo_RS`)
 
 The `fo_RS` function allows you to create intelligent macros that change behavior based on Health or Power (Mana/Rage/Energy) levels. It supports both **percentage-based** checks and **absolute deficit** checks.
@@ -433,19 +395,19 @@ The `fo_RS` function allows you to create intelligent macros that change behavio
 
 `fo_RS("condition", "target_flag")`
 
-* **Smart Targeting System**: Follows STS. "s", "m", "WoWUnitID" works.
-* **Condition**: A string containing the stat, operator, and value (e.g., `"hp < 50%"`, `"pd > 1000"`).
+- **Smart Targeting System**: Follows STS. "s", "m", "WoWUnitID" works.
+- **Condition**: A string containing the stat, operator, and value (e.g., `"hp < 50%"`, `"pd > 1000"`).
 
 ---
 
 ### 💡 Stat Aliases & Deficit Mode
 
-| Alias | Description | Type |
-| --- | --- | --- |
-| **`l`**| Current Life / Health | Current Value |
-| **`p`**| Current Power / Mana | Current Value |
-| **`ld`**| **Life Deficit** (Max - Current) | Missing Amount |
-| **`pd`**| **Power Deficit** (Max - Current) | Missing Amount |
+| Alias    | Description                       | Type           |
+| -------- | --------------------------------- | -------------- |
+| **`l`**  | Current Life / Health             | Current Value  |
+| **`p`**  | Current Power / Mana              | Current Value  |
+| **`ld`** | **Life Deficit** (Max - Current)  | Missing Amount |
+| **`pd`** | **Power Deficit** (Max - Current) | Missing Amount |
 
 ---
 
@@ -475,18 +437,10 @@ Standard percentage check for survival skills.
 
 For developers who want raw numbers for their own custom logic:
 
-* `fo_lifeDeficit("unit")`: Returns the absolute number of missing HP.
-* `fo_powerDeficit("unit")`: Returns the absolute number of missing Power/Mana.
-
-
-
-
-
-
-
+- `fo_lifeDeficit("unit")`: Returns the absolute number of missing HP.
+- `fo_powerDeficit("unit")`: Returns the absolute number of missing Power/Mana.
 
 ---
-
 
 <BR><BR>
 
@@ -496,8 +450,8 @@ The `fo_CD` function returns `true` if a spell is currently on cooldown. It is d
 
 ### 🛠️ API Reference
 
-| Function            | Description                                                | Example Usage |
-| ------------------- | ---------------------------------------------------------- | ------------- |
+| Function          | Description                                                | Example Usage |
+| ----------------- | ---------------------------------------------------------- | ------------- |
 | **`fo_CD(name)`** | Returns `true` if the spell is on cooldown (ignoring GCD). | `"Swiftmend"` |
 
 ### 📝 Macro Example
@@ -508,14 +462,13 @@ If _Swiftmend_ is on cooldown, cast _Regrowth_ instead. Otherwise, cast _Swiftme
 
 ```lua
 /script if fo_CD("Swiftmend") then fo_cast("Regrowth") else fo_cast("Swiftmend") end
-
 ```
 
 ---
 
 <BR><BR>
 
-## <a id="boolean-checkers"></a>🔍 Status / Equipment Checker
+## <a id="status-equipment-checkers"></a>🔍 Status / Equipment Checker
 
 These functions return either `true` or `false`. They are essential for creating conditional macros that adapt to your current gear, talents, and combat state.
 
@@ -528,6 +481,39 @@ Identify your currently equipped gear. These functions use tooltip scanning to e
 | **`fo_hasShield()`** | A **Shield** is equipped in your off-hand.             |
 | **`fo_has2H()`**     | A **Two-Handed** weapon is equipped in your main-hand. |
 | **`fo_hasDW()`**     | You are **Dual-Wielding** (Weapons in both MH and OH). |
+
+### 📝 Macro Example
+
+```lua
+/script if fo_hasShield() then fo_cast("Shield Block") else fo_cast('Retaliation') end
+```
+
+### Manual Check
+
+These utility functions are used to verify equipment slot occupancy and item details.
+
+| Function                                  | Returns `true` if...                                                                                |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **`fo_occupied(slotID)`**                 | Returns true if the specified slot is occupied by any item.                                         |
+| **`fo_occupiedBy(slotID, "keyword")`**    | Returns true if the slot is occupied by an item that contains the specified keyword in its tooltip. |
+| **`fo_occupiedNotBy(slotID, "keyword")`** | Returns true if the slot is occupied by an item that does not contain the specified keyword.        |
+
+### Equipment Slot IDs
+
+Use these `slotID` numbers with the functions above:
+
+| Slot | ID | Slot | ID |
+| --- | --- | --- | --- |
+| **Head** | 1 | **Hands** | 10 |
+| **Neck** | 2 | **Finger 1-2** | 11-12 |
+| **Shoulder** | 3 | **Trinket 1-2** | 13-14 |
+| **Chest** | 5 | **Back** | 15 |
+| **Waist** | 6 | **Main Hand** | 16 |
+| **Legs** | 7 | **Off Hand** | 17 |
+| **Feet** | 8 | **Ranged / Relic** | 18 |
+| **Wrist** | 9 |  |  |
+
+<BR>
 
 ### 📘 Knowledge State
 
@@ -557,26 +543,6 @@ Useful for fine-tuning macro behavior based on your character's current activity
 | **`fo_isStealth()`**   | You are currently Stealthed, Prowling, or Shadowmelded. |
 | **`fo_isShooting()`**  | You are currently using a Wand or Ranged Auto-shot.     |
 | **`fo_isAttacking()`** | You are currently in Melee Auto-attack mode.            |
-
----
-
-### 📝 Practical Logic Examples
-
-#### **Adaptive Rotation**
-
-```lua
--- Casts Shield Slam if you have a shield, otherwise casts Mortal Strike
-/script if fo_hasShield() then fo_cast("Shield Slam") elseif fo_has2H() then fo_cast("Mortal Strike") end
-
-```
-
-#### **Dynamic Talent Logic**
-
-```lua
--- Only attempts to use the talent if it's currently learned
-/script if fo_hasSpell("Holy Shock") then fo_cast("Holy Shock") else fo_cast("Flash of Light") end
-
-```
 
 ---
 
