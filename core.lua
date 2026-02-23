@@ -7,14 +7,6 @@ fo_Settings = fo_Settings or {}
 -- ==========================================================
 -- SCANNER
 -- ==========================================================
-<<<<<<< HEAD
--- function fo_GetScanner()
---     if not _G["FoAuraScanner"] then
---         local frame = CreateFrame("GameTooltip", "FoAuraScanner", nil, "GameTooltipTemplate")
---         frame:SetOwner(WorldFrame, "ANCHOR_NONE")
---     end
---     return _G["FoAuraScanner"]
--- end
 
 function fo_GetScanner()
     if not _G["FoAuraScanner"] then
@@ -48,34 +40,6 @@ function fo_scan(func)
 end
 
 
-=======
--- fo_scan: The unified scanner using standard GameTooltip.
--- All operations are performed using the global GameTooltip object.
-function fo_scan(func)
-    local tooltip = GameTooltip
-    
-    -- 1. Detach and clear
-    tooltip:SetOwner(UIParent, "ANCHOR_NONE")
-    tooltip:ClearLines() -- Ensure it's clean before setting the item
-    
-    -- 2. Execute the function (which should call SetInventoryItem)
-    local result = func(tooltip)
-    -- DEBUGG TOOL
-    -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Lines count after func: " .. tooltip:NumLines())
-    
-    -- 3. Important: Some clients require a refresh or a tick
-    -- In 1.12, if we are inside the same frame tick, the tooltip might be empty.
-    -- Ensure the scanner is hidden after processing.
-    tooltip:Hide()
-    
-    return result
-end
-
-function fo_getScanner()
-    return GameTooltip
-end
->>>>>>> 631d1aedcc99edfa7497d7d2edbc8afb8b247040
-
 
 -- keywords used to identify forms/stances in tooltips
 -- Used by the scanner to identify buffs that should prevent auto-unshifting
@@ -85,10 +49,6 @@ FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal" }
 -- Public API (Functions to use in Macros)
 -- ==========================================================
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 631d1aedcc99edfa7497d7d2edbc8afb8b247040
 -- Debug Tool: Show all textures on your current target
 function fo_showTargetTexture()
     local unit = "target"
@@ -245,10 +205,6 @@ function fo_dualLogic(helpVal, harmVal, unit)
     return helpVal
 end
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 631d1aedcc99edfa7497d7d2edbc8afb8b247040
 -- ==========================================================
 -- CORE CASTING FUNCTION (With Immediate Nil Guard)
 -- ==========================================================
@@ -355,14 +311,9 @@ local function _CheckAuraByName(spellName, unit)
 end
 
 
-<<<<<<< HEAD
 -- Smart Aura Check
 -- @param spellName: e.g., "Moonfire(Rank 1)" or "Moonfire"
 -- @param unit: The unit to inspect. Accepts standard WoW unit IDs such as "target", "player", "pet", "party1", or "mouseover". Defaults to "target" if omitted.
-=======
-
---- [Standard Interface] Smart Aura Check
->>>>>>> 631d1aedcc99edfa7497d7d2edbc8afb8b247040
 -- Matches fo_cast behavior: uses the Brain to resolve target.
 -- Usage in Macro: fo_aura("Rejuvenation", "s") -> Self
 --                 fo_aura("Moonfire", "m")     -> Mouseover/Target
@@ -521,7 +472,6 @@ end
 -- Equipment Checker
 -- ==========================================================
 
-<<<<<<< HEAD
 -- Internal helper to scan tooltips for specific keywords.
 function fo_scanEquip(slotID, keyword)
     if not UnitName("player") then return false end
@@ -572,49 +522,6 @@ end
 
 
 
-=======
--- Internal use
--- fo_scanEquip: Scans for up to two keywords in the tooltip.
--- Simplified to avoid gsub chaining errors.
-function fo_scanEquip(slotID, key1, key2)
-    return fo_scan(function(scanner)
-        scanner:SetInventoryItem("player", slotID)
-        
-        local fullText = ""
-        -- Iterate all potential lines (usually up to 15 is enough)
-        for i = 1, 15 do
-            -- Check Left column
-            local left = getglobal("GameTooltipTextLeft" .. i)
-            if left and left:GetText() then
-                fullText = fullText .. " " .. strlower(left:GetText())
-            end
-            
-            -- Check Right column (where weapon type/stats often reside)
-            local right = getglobal("GameTooltipTextRight" .. i)
-            if right and right:GetText() then
-                fullText = fullText .. " " .. strlower(right:GetText())
-            end
-        end
-        
-        -- -- DEBUG: Log the combined text to see if the weapon type appears
-        -- DEFAULT_CHAT_FRAME:AddMessage("Scanning: " .. fullText)
-        
-        -- Check Key1
-        if key1 and not string.find(fullText, strlower(key1), 1, true) then
-            return false
-        end
-        
-        -- Check Key2
-        if key2 and not string.find(fullText, strlower(key2), 1, true) then
-            return false
-        end
-        
-        return true
-    end)
-end
-
-
->>>>>>> 631d1aedcc99edfa7497d7d2edbc8afb8b247040
 -- fo_occupied: Returns true if the specified slot is occupied by an item.
 function fo_occupied(s)
     return GetInventoryItemLink("player", s) ~= nil
@@ -632,10 +539,6 @@ end
 
 
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 631d1aedcc99edfa7497d7d2edbc8afb8b247040
 -- Returns true if a Shield is equipped
 function fo_hasShield()
     return fo_occupiedBy(17, "Shield")
@@ -821,10 +724,6 @@ end
 
 
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 631d1aedcc99edfa7497d7d2edbc8afb8b247040
 function fo_startShoot()
     -- Check if already shooting
     if fo_isShooting() then 
@@ -850,56 +749,11 @@ function fo_startShoot()
         end
     end
 
-<<<<<<< HEAD
     -- if not found then
     --     DEFAULT_CHAT_FRAME:AddMessage("DEBUG: No valid weapon detected in slot 18.")
     -- end
 end
 
-
--- function fo_startShoot()
---     if fo_isShooting() then return end
-
---     -- 1. Scan tooltips safely using the wrapper
---     local hasItem = fo_scan(function(scanner)
---         return scanner:SetInventoryItem("player", 18)
---     end)
-
---     -- If the function failed (nil) or item doesn't exist (false), stop
---     if not hasItem then return end
-
---     local spell = nil
---     -- 2. Iterate through lines safely
---     for i = 1, 5 do
---         local leftObj = getglobal("FoAuraScannerTextLeft" .. i)
---         local rightObj = getglobal("FoAuraScannerTextRight" .. i)
-
---         -- Use 'and' to check object existence before calling :GetText()
---         local left = (leftObj and leftObj:GetText()) or ""
---         local right = (rightObj and rightObj:GetText()) or ""
---         local content = left .. right -- No need for (left or "") here because of the line above
-
---         if string.find(content, "Wand") then
---             spell = "Shoot"; break
---         elseif string.find(content, "Crossbow") then
---             spell = "Shoot Crossbow"; break
---         elseif string.find(content, "Bow") then
---             spell = "Shoot Bow"; break
---         elseif string.find(content, "Gun") then
---             spell = "Shoot Gun"; break
---         end
---     end
-
---     if spell then CastSpellByName(spell) end
--- end
-=======
-    if not found then
-        DEFAULT_CHAT_FRAME:AddMessage("DEBUG: No valid weapon detected in slot 18.")
-    end
-end
-
-
->>>>>>> 631d1aedcc99edfa7497d7d2edbc8afb8b247040
 
 -- Stops all current actions: Spell casting, Channeling, Auto-Attack, and Shooting.
 function fo_break()
@@ -959,10 +813,6 @@ local function _fo_ScanAndUseItem(list, categoryLabel)
     end
     return false
 end
-
-
-
-
 
 
 
