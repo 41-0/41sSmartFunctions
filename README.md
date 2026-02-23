@@ -2,7 +2,9 @@
 
 **The Essential Macro Script Library for TWoW**
 
-**Note: This AddOn is compatible with the English Client ONLY. Spell names and aura checks are hardcoded in English.**
+> [!IMPORTANT]
+> SuperWoW is required for this addon to function.<BR>
+> This AddOn is compatible with the English Client ONLY. Spell names and aura checks are hardcoded in English.**
 
 <BR>
 
