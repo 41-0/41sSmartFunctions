@@ -257,8 +257,7 @@ end
 -- DRUID Status
 -- ==========================================================
 function fo_isFrenziedRegen()
-    -- return fo_aura('Frenzied Regeneration', 's')
-    return true
+    return fo_aura('Frenzied Regeneration', 's')
 end
 
 -- ==========================================================
