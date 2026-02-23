@@ -7,10 +7,17 @@ fo_Settings = fo_Settings or {}
 -- ==========================================================
 -- SCANNER MANAGEMENT (Robust version)
 -- ==========================================================
+-- function fo_GetScanner()
+--     if not _G["FoAuraScanner"] then
+--         local frame = CreateFrame("GameTooltip", "FoAuraScanner", nil, "GameTooltipTemplate")
+--         frame:SetOwner(WorldFrame, "ANCHOR_NONE")
+--     end
+--     return _G["FoAuraScanner"]
+-- end
+
 function fo_GetScanner()
     if not _G["FoAuraScanner"] then
         local frame = CreateFrame("GameTooltip", "FoAuraScanner", nil, "GameTooltipTemplate")
-        frame:SetOwner(WorldFrame, "ANCHOR_NONE")
     end
     return _G["FoAuraScanner"]
 end
@@ -19,17 +26,15 @@ end
 -- SAFE SCANNER WRAPPER
 -- ==========================================================
 -- func: A function that describes the task to be performed using the scanner
-function fo_Scan(func)
+function fo_scan(func)
     local scanner = fo_GetScanner()
     -- Ensure the scanner is visible for interaction, then clear previous tooltip data
-    scanner:Show()
-    scanner:ClearLines()
+    scanner:SetOwner(WorldFrame, "ANCHOR_NONE")
 
     -- Execute the provided function safely and capture the return result
     local status, result = pcall(func, scanner)
-
-    -- Always hide the scanner after processing to prevent UI interference
-    scanner:Hide()
+    -- Force the tooltip to render its contents so we can scan the text.
+    scanner:Show()
 
     -- Return nil if the execution failed, otherwise return the actual result
     if not status then
@@ -37,8 +42,12 @@ function fo_Scan(func)
         -- DEFAULT_CHAT_FRAME:AddMessage("Scan Error: " .. tostring(result))
         return nil
     end
+
     return result
 end
+
+
+
 
 -- keywords used to identify forms/stances in tooltips
 -- Used by the scanner to identify buffs that should prevent auto-unshifting
@@ -49,9 +58,7 @@ FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal" }
 -- ==========================================================
 
 
--- ==========================================================
 -- Debug Tool: Show all textures on your current target
--- ==========================================================
 function fo_showTargetTexture()
     local unit = "target"
     if not UnitExists(unit) then
@@ -209,20 +216,6 @@ function fo_dualLogic(helpVal, harmVal, unit)
     return helpVal
 end
 
--- -- Main entry point for hybrid macros.
--- function fo_castDual(helpSpell, harmSpell, ...)
---     -- 1. Identify target via SmartTarget (handles "m", "d", "s" flags).
---     local unit = _GetSmartTarget(helpSpell, arg)
-
---     -- 2. "d" flag guard: Stop if no valid target found to prevent auto-self cast.
---     if not unit then return end
-
---     -- 3. Select appropriate spell based on target reaction.
---     local spell = fo_dualLogic(helpSpell, harmSpell, unit)
-
---     -- 4. Relay to fo_cast for final execution and PCC check.
---     fo_cast(spell, unpack(arg))
--- end
 
 -- ==========================================================
 -- CORE CASTING FUNCTION (With Immediate Nil Guard)
@@ -301,8 +294,8 @@ local function _CheckAuraByName(spellName, unit)
             end
 
             -- Check by Tooltip Text
-            -- Uses fo_Scan to safely interact with the tooltip
-            local isMatch = fo_Scan(function(scanner)
+            -- Uses fo_scan to safely interact with the tooltip
+            local isMatch = fo_scan(function(scanner)
                 scanner:SetOwner(WorldFrame, "ANCHOR_NONE")
                 if auraType == "HELPFUL" then
                     scanner:SetUnitBuff(unit, i)
@@ -330,19 +323,24 @@ local function _CheckAuraByName(spellName, unit)
 end
 
 
-
+-- Smart Aura Check
 -- @param spellName: e.g., "Moonfire(Rank 1)" or "Moonfire"
 -- @param unit: The unit to inspect. Accepts standard WoW unit IDs such as "target", "player", "pet", "party1", or "mouseover". Defaults to "target" if omitted.
-
---- [Standard Interface] Smart Aura Check
 -- Matches fo_cast behavior: uses the Brain to resolve target.
 -- Usage in Macro: fo_aura("Rejuvenation", "s") -> Self
 --                 fo_aura("Moonfire", "m")     -> Mouseover/Target
-function fo_aura(spellName, arg2, arg3)
-    local u = _GetSmartTarget(spellName, arg2, arg3)
+
+function fo_aura(spellName, arg2, arg3, arg4)
+    local u = _GetSmartTarget(spellName, arg2, arg3, arg4)
     if not u then return false end
     return _CheckAuraByName(_GetPureName(spellName), u)
 end
+-- function fo_aura(spellName, ...)
+--     local args = arg or {}
+--     local u = _GetSmartTarget(spellName, unpack(args))
+--     if not u then return false end
+--     return _CheckAuraByName(_GetPureName(spellName), u)
+-- end
 
 --- [Direct Interface] Manual Unit ID Check
 -- For specific needs: "targettarget", "raid1", "focus", etc.
@@ -480,78 +478,129 @@ function fo_CD(spellName)
     return false
 end
 
+
+
 -- ==========================================================
 -- Equipment Checker
 -- ==========================================================
 
 -- Internal helper to scan tooltips for specific keywords.
-local function fo_scanFor(slotID, keyword)
-    -- 0. Sanity check: Ensure player state is valid
+function fo_scanEquip(slotID, keyword)
     if not UnitName("player") then return false end
-
-    -- 1. Existing link check
     if not GetInventoryItemLink("player", slotID) then return false end
 
-    -- 2. Safely perform the inventory scan using the wrapper
-    -- fo_Scan will handle pcall and visibility, returning true if the item was set
-    local hasItem = fo_Scan(function(scanner)
+local link = GetInventoryItemLink("player", slotID)
+-- DEBUG
+-- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Item Link for slot " .. slotID .. " is: " .. tostring(link))
+
+
+    local hasItem = fo_scan(function(scanner)
         return scanner:SetInventoryItem("player", slotID)
     end)
 
-    -- Corrected safety check: only check hasItem
-    if not hasItem then return false end
+    if not hasItem then 
+        -- DEBUG
+        -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: fo_scanEquip - No item in slot " .. slotID)
+        return false 
+    end
 
-    -- 3. Scan the tooltip lines for the keyword
-    for i = 1, 5 do
+    -- Get the number of lines in a tooltip
+    local numLines = _G["FoAuraScanner"]:NumLines()
+    local k = strlower(keyword)
+
+    -- DEBUG
+    -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Scanning " .. numLines .. " lines for: " .. keyword)
+
+    for i = 1, numLines do
         local leftObj = _G["FoAuraScannerTextLeft" .. i]
-        if leftObj then
-            local left = leftObj:GetText() or ""
-            local rightObj = _G["FoAuraScannerTextRight" .. i]
-            local right = (rightObj and rightObj:GetText()) or ""
+        local left = (leftObj and leftObj:GetText()) or ""
+        
+        local rightObj = _G["FoAuraScannerTextRight" .. i]
+        local right = (rightObj and rightObj:GetText()) or ""
 
-            -- Case-insensitive search
-            local content = strlower(left .. right)
-            local k = strlower(keyword)
+        -- DEBUG
+        -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Line " .. i .. ": [" .. left .. "] [" .. right .. "]")
 
-            if strfind(content, k, 1, true) then
-                return true
-            end
+        local content = strlower(left .. " " .. right)
+        if strfind(content, k, 1, true) then
+            -- DEBUG
+            -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Keyword found on line " .. i)
+            return true
         end
     end
+    
     return false
 end
 
+
+
+-- fo_occupied: Returns true if the specified slot is occupied by an item.
+function fo_occupied(s)
+    return GetInventoryItemLink("player", s) ~= nil
+end
+
+-- fo_occupiedBy: Returns true if the slot is occupied by an item that contains the keyword.
+function fo_occupiedBy(s, k)
+    return fo_occupied(s) and fo_scanEquip(s, k)
+end
+
+-- fo_occupiedNotBy: Returns true if the slot is occupied by an item that does NOT contain the keyword.
+function fo_occupiedNotBy(s, k)
+    return fo_occupied(s) and not fo_scanEquip(s, k)
+end
+
+
+
+
 -- Returns true if a Shield is equipped
 function fo_hasShield()
-    return fo_scanFor(17, "Shield")
+    return fo_occupiedBy(17, "Shield")
 end
 
 -- Returns true if a Two-Handed weapon is equipped
 function fo_has2H()
     -- Check for "Two-Hand" (matches Two-Handed too)
-    return fo_scanFor(16, "Two-Hand")
+    return fo_occupiedBy(16, "Two-Hand")
 end
 
 -- Returns true if Dual-Wielding weapons
 function fo_hasDW()
-    -- 1. Check Main-hand (Slot 16)
-    local mainItem = GetInventoryItemLink("player", 16)
-    if not mainItem then return false end -- Main hand is empty
-
-    -- 2. Check Off-hand (Slot 17)
-    local offItem = GetInventoryItemLink("player", 17)
-    if not offItem or fo_hasShield() then return false end -- Off-hand is empty or a shield
-
-    -- 3. Verify Off-hand is actually a weapon (Excluding "Held in Off-hand" items)
-    local weaponTypes = { "One-Hand", "Dagger", "Sword", "Axe", "Mace", "Fist" }
-    for _, wType in ipairs(weaponTypes) do
-        if fo_scanFor(17, wType) then
-            return true
-        end
-    end
-
-    return false
+    return fo_occupied(16) and fo_occupiedNotBy(17, "Held in Off-Hand") and fo_occupiedNotBy(17, "Shield")
 end
+
+
+
+-- -- Returns true if a Shield is equipped
+-- function fo_hasShield()
+--     return fo_scanEquip(17, "Shield")
+-- end
+
+-- -- Returns true if a Two-Handed weapon is equipped
+-- function fo_has2H()
+--     -- Check for "Two-Hand" (matches Two-Handed too)
+--     return fo_scanEquip(16, "Two-Hand")
+-- end
+
+-- -- Returns true if Dual-Wielding weapons
+-- function fo_hasDW()
+--     -- 1. Check Main-hand (Slot 16)
+--     local mainItem = GetInventoryItemLink("player", 16)
+--     if not mainItem then return false end -- Main hand is empty
+
+--     -- 2. Check Off-hand (Slot 17)
+--     local offItem = GetInventoryItemLink("player", 17)
+--     if not offItem or fo_hasShield() then return false end -- Off-hand is empty or a shield
+
+--     -- 3. Verify Off-hand is actually a weapon (Excluding "Held in Off-hand" items)
+--     local weaponTypes = { "One-Hand", "Dagger", "Sword", "Axe", "Mace", "Fist" }
+--     for _, wType in ipairs(weaponTypes) do
+--         if fo_scanEquip(17, wType) then
+--             return true
+--         end
+--     end
+
+--     return false
+-- end
 
 -- ==========================================================
 -- Spellbook Checker
@@ -686,41 +735,74 @@ function fo_isShooting()
     return false
 end
 
+
+
 function fo_startShoot()
-    if fo_isShooting() then return end
+    -- Check if already shooting
+    if fo_isShooting() then 
+        return 
+    end
 
-    -- 1. Scan tooltips safely using the wrapper
-    local hasItem = fo_Scan(function(scanner)
-        return scanner:SetInventoryItem("player", 18)
-    end)
+    -- Check if scan finds anything
+    local found = false
+    local weapons = {
+        {"crossbow", "Shoot Crossbow"},
+        {"wand", "Shoot"},
+        {"bow", "Shoot Bow"},
+        {"gun", "Shoot Gun"},
+        {"thrown", "Throw"}
+    }
 
-    -- If the function failed (nil) or item doesn't exist (false), stop
-    if not hasItem then return end
-
-    local spell = nil
-    -- 2. Iterate through lines safely
-    for i = 1, 5 do
-        local leftObj = getglobal("FoAuraScannerTextLeft" .. i)
-        local rightObj = getglobal("FoAuraScannerTextRight" .. i)
-
-        -- Use 'and' to check object existence before calling :GetText()
-        local left = (leftObj and leftObj:GetText()) or ""
-        local right = (rightObj and rightObj:GetText()) or ""
-        local content = left .. right -- No need for (left or "") here because of the line above
-
-        if string.find(content, "Wand") then
-            spell = "Shoot"; break
-        elseif string.find(content, "Crossbow") then
-            spell = "Shoot Crossbow"; break
-        elseif string.find(content, "Bow") then
-            spell = "Shoot Bow"; break
-        elseif string.find(content, "Gun") then
-            spell = "Shoot Gun"; break
+    for _, data in ipairs(weapons) do
+        if fo_scanEquip(18, data[1]) then
+            -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Weapon found: " .. data[1] .. ", casting: " .. data[2])
+            CastSpellByName(data[2])
+            found = true
+            break
         end
     end
 
-    if spell then CastSpellByName(spell) end
+    -- if not found then
+    --     DEFAULT_CHAT_FRAME:AddMessage("DEBUG: No valid weapon detected in slot 18.")
+    -- end
 end
+
+
+-- function fo_startShoot()
+--     if fo_isShooting() then return end
+
+--     -- 1. Scan tooltips safely using the wrapper
+--     local hasItem = fo_scan(function(scanner)
+--         return scanner:SetInventoryItem("player", 18)
+--     end)
+
+--     -- If the function failed (nil) or item doesn't exist (false), stop
+--     if not hasItem then return end
+
+--     local spell = nil
+--     -- 2. Iterate through lines safely
+--     for i = 1, 5 do
+--         local leftObj = getglobal("FoAuraScannerTextLeft" .. i)
+--         local rightObj = getglobal("FoAuraScannerTextRight" .. i)
+
+--         -- Use 'and' to check object existence before calling :GetText()
+--         local left = (leftObj and leftObj:GetText()) or ""
+--         local right = (rightObj and rightObj:GetText()) or ""
+--         local content = left .. right -- No need for (left or "") here because of the line above
+
+--         if string.find(content, "Wand") then
+--             spell = "Shoot"; break
+--         elseif string.find(content, "Crossbow") then
+--             spell = "Shoot Crossbow"; break
+--         elseif string.find(content, "Bow") then
+--             spell = "Shoot Bow"; break
+--         elseif string.find(content, "Gun") then
+--             spell = "Shoot Gun"; break
+--         end
+--     end
+
+--     if spell then CastSpellByName(spell) end
+-- end
 
 -- Stops all current actions: Spell casting, Channeling, Auto-Attack, and Shooting.
 function fo_break()
@@ -1016,7 +1098,7 @@ function fo_dismount()
 
                 if isMountCandidate then
                     -- Safely scan tooltip to get the exact buff name
-                    local buffName = fo_Scan(function(scanner)
+                    local buffName = fo_scan(function(scanner)
                         scanner:SetPlayerBuff(id)
                         local leftObj = _G["FoAuraScannerTextLeft1"]
                         return leftObj and leftObj:GetText()
@@ -1063,53 +1145,11 @@ local function GetBestChannel()
 end
 
 -- Main execution: Process combat log messages
-local function ExecuteTauntAnnounce(combatLogMsg)
-    -- Guard: Check if the feature is enabled
-    if not fo_Settings.announceTauntResist then return end
-
-    local lowerLog = string.lower(combatLogMsg)
-
-    -- 1. Identify if a taunt spell is in the log
-    local foundSpell = nil
-    for spell, _ in pairs(fo_Settings.tauntSpells) do
-        if string.find(lowerLog, spell) then
-            foundSpell = spell
-            break
-        end
-    end
-
-    if not foundSpell then return end
-
-    -- 2. Detect failure types (Resist, Miss, Dodge, etc.)
-    local failureKeywords = { "resisted", "missed", "dodged", "parried", "immune" }
-    local foundFail = nil
-    for _, word in pairs(failureKeywords) do
-        if string.find(lowerLog, word) then
-            foundFail = string.upper(word)
-            break
-        end
-    end
-
-    -- 3. Output announcement if a failure occurred
-    if foundFail then
-        local displayName = "[" .. ToTitleCase(foundSpell) .. "]"
-        local finalMsg = displayName .. " " .. foundFail .. "!"
-
-        local channel = GetBestChannel()
-        if channel == "PRINT" then
-            DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[Taunt Alert]:|r " .. finalMsg)
-        else
-            SendChatMessage(finalMsg, channel)
-        end
-    end
-end
+local isTalentUpdating = false
 
 local function ExecuteTauntAnnounce(combatLogMsg)
-    -- Guard 1: Talent reset / Global lock
-    -- If FO_IsLocked is not defined yet, you can comment this line out temporarily
-    if FO_IsLocked then return end
-    
-    -- Guard 2: Monitor ONLY while in combat AND in a group
+   
+    -- Monitor ONLY while in combat AND in a group
     -- GetNumPartyMembers() and GetNumRaidMembers() check group status
     local inGroup = (GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0)
     if not UnitAffectingCombat("player") or not inGroup then 
@@ -1210,15 +1250,21 @@ end
 -- ==========================================================
 -- MAIN EVENT HANDLER (Integrated & Fixed)
 -- ==========================================================
-local f = CreateFrame("Frame")
+local isAnnounceAllowed = false
+local FO_EVENT_HANDLER = CreateFrame("Frame")
 
 -- [1] Utility Events
-f:RegisterEvent("VARIABLES_LOADED")
+FO_EVENT_HANDLER:RegisterEvent("VARIABLES_LOADED")
 -- [2] Combat State Events for Dynamic Registration
-f:RegisterEvent("PLAYER_REGEN_DISABLED")
-f:RegisterEvent("PLAYER_REGEN_ENABLED")
+FO_EVENT_HANDLER:RegisterEvent("PLAYER_REGEN_DISABLED")
+FO_EVENT_HANDLER:RegisterEvent("PLAYER_REGEN_ENABLED")
+FO_EVENT_HANDLER:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
+-- FO_EVENT_HANDLER:UnregisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
 
-f:SetScript("OnEvent", function()
+FO_EVENT_HANDLER:SetScript("OnEvent", function()
+    -- DEBUGG
+    -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Event received: " .. tostring(event))
+
     local event = event
     local a1 = arg1
 
@@ -1242,25 +1288,32 @@ f:SetScript("OnEvent", function()
         return
     end
 
+    
     -- CASE 2: Dynamic Combat Log Monitoring
     -- We register the combat log event only when entering combat 
     -- to prevent memory corruption during talent resets or reloads.
     if event == "PLAYER_REGEN_DISABLED" then
-        f:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
+        isAnnounceAllowed = true
         return
     end
     
     if event == "PLAYER_REGEN_ENABLED" then
-        f:UnregisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
+        isAnnounceAllowed = false
+        -- DEBUGG
+        -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: isAnnounceAllowed is now " .. tostring(isAnnounceAllowed))
         return
     end
 
     -- CASE 3: Process Combat Log
     if event == "CHAT_MSG_SPELL_SELF_DAMAGE" then
-        -- Safety Guard: Ensure we are still in combat and settings are valid
-        if UnitAffectingCombat("player") and fo_Settings and fo_Settings.tauntSpells and fo_Settings.announceTauntResist then
+        -- DEBUGG
+        -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Allowed=" .. tostring(isAnnounceAllowed))
+
+        -- Safety Guard
+        if isAnnounceAllowed and fo_Settings and fo_Settings.tauntSpells and fo_Settings.announceTauntResist then
             ExecuteTauntAnnounce(a1)
         end
         return
+
     end
 end)

@@ -257,8 +257,8 @@ end
 -- DRUID Status
 -- ==========================================================
 function fo_isFrenziedRegen()
-    return fo_auraSelf('Frenzied Regeneration') and fo_auraSelf('Ability_BullRush')
-    -- return true
+    -- return fo_aura('Frenzied Regeneration', 's')
+    return true
 end
 
 -- ==========================================================
@@ -369,7 +369,8 @@ function fo_druidFilter(spellName)
         -- [PRE-STEP] Frenzied Regeneration Safety Check
         if fo_isFrenziedRegen() and fo_Settings.rageSpells and fo_Settings.rageSpells[baseName] then
             local threshold = fo_Settings.frenziedRegenThreshold or 0
-            if fo_RSSelf('p', "<", threshold) then
+            local condition = string.format("p<%d", threshold)
+            if fo_RS(condition, 's') then
                 local now = GetTime()
                 if (now - lastFRMessageTime) > 3 then
                     UIErrorsFrame:AddMessage("Blocking " .. baseName .. " for Frenzied Regen", 1.0, 0.5, 0.0)
@@ -465,154 +466,6 @@ end
 
 
 
-
-
-
-
-
-
-
-
-
-
--- [[ Druid Specific Filter Logic ]]
--- This function handles all Druid-specific constraints including:
--- 1. Frenzied Regeneration Rage Management (High Priority)
--- 2. Auto-Shapeshifting based on spell requirements
--- 3. Form-based permissions using bitwise flags
--- local lastFRMessageTime = 0
--- function fo_druidFilter(spellName)
---     -- Normalize input to lowercase
---     local name = string.lower(spellName or "")
---     if name == "" then return true end
-
---     -- Extract base spell name (remove rank/parentheses)
---     -- If "(" exists, we strip it unless it's the specific "(feral)" variant
---     local baseName = name
---     local openParen = string.find(name, "%(")
---     if openParen and not string.find(name, "feral") then
---         baseName = string.sub(name, 1, openParen - 1)
---         baseName = string.gsub(baseName, "%s+$", "") -- Trim whitespace
---     end
-
---     -- [PRE-STEP] Frenzied Regeneration Safety Check
---     if fo_isFrenziedRegen() then
---         -- Use baseName for table lookup
---         if fo_Settings.rageSpells and fo_Settings.rageSpells[baseName] then
---             if fo_RSSelf('p', "<", fo_Settings.frenziedRegenThreshold) then
---                 local now = GetTime()
---                 if (now - lastFRMessageTime) > 3 then
---                     UIErrorsFrame:AddMessage("Blocking " .. baseName .. " for Frenzied Regen", 1.0, 0.5, 0.0)
---                     lastFRMessageTime = now
---                 end
---                 return false
---             end
---         end
---     end
-
---     -- [STEP 1] Determine Form Lock Status
---     local isFormLocked = false
---     if fo_isBear() then
---         isFormLocked = fo_Settings.lockBearForm
---     elseif fo_isCat() then
---         isFormLocked = fo_Settings.lockCatForm
---     elseif fo_isMoonkin() then
---         isFormLocked = fo_Settings.lockMoonkinForm
---     elseif fo_isTree() then
---         isFormLocked = fo_Settings.lockTreeForm
---     end
-
---     -- [STEP 2] Check Feral Requirements (Auto-Shapeshift)
---     -- Use baseName for lookup instead of raw name
---     local reqForms = fo_formRequirements[baseName]
---     if reqForms then
---         local isCorrectForm = false
---         for _, fName in ipairs(reqForms) do
---             if (fName == "bear form" and fo_isBear()) or
---                 (fName == "cat form" and fo_isCat()) then
---                 isCorrectForm = true
---                 break
---             end
---         end
-
---         if isCorrectForm then return true end
-
---         if fo_Settings.autoShapeshift and not isFormLocked then
---             if reqForms[2] then
---                 if fo_Settings.prioritizeBear then
---                     fo_castBearForm()
---                 else
---                     fo_castCatForm()
---                 end
---             else
---                 local target = string.lower(reqForms[1])
---                 if target == "bear form" then
---                     fo_castBearForm()
---                 elseif target == "cat form" then
---                     fo_castCatForm()
---                 elseif target == "travel form" then
---                     fo_castTravelForm()
---                 elseif target == "moonkin form" then
---                     fo_castMoonkinForm()
---                 elseif target == "tree of life form" then
---                     fo_castTreeForm()
---                 end
---             end
---         end
---         return false
---     end
-
---     -- [STEP 3] Check Caster Permissions (Bitwise Validation)
---     -- Use baseName for lookup
---     local allowedMask = fo_spellPermissions[baseName]
-
---     -- Block the action if the form is locked (Prevent accidental shifting)
---     if isFormLocked then
---         -- Debugg
---         -- UIErrorsFrame:AddMessage("Form is LOCKED", 1.0, 0.1, 0.1)
---         return false
---     end
-
-
---     if allowedMask then
---         local currentFlag = 0
---         if fo_isCaster() then
---             currentFlag = 1
---         elseif fo_isTree() then
---             currentFlag = 2
---         elseif fo_isMoonkin() then
---             currentFlag = 4
---         elseif fo_isBear() then
---             currentFlag = 8
---         elseif fo_isCat() then
---             currentFlag = 16
---         else
---             currentFlag = 32
---         end
-
---         -- Perform bitwise check to see if current form is allowed for this spell
---         local isAllowed = (math.mod(math.floor(allowedMask / currentFlag), 2) == 1)
---         if isAllowed then return true end
-
---         -- [TWoW SHAPESHIFT LOGIC]
---         local isShapeshift = (baseName == "bear form") or (baseName == "dire bear form") or
---             (baseName == "cat form") or (baseName == "travel form") or
---             (baseName == "aquatic form") or (baseName == "moonkin form") or
---             (baseName == "tree of life form")
-
---         if isShapeshift then
---             return true
---         end
-
---         -- Default Behavior: Cancel current form if the spell is not permitted and not a shapeshift
---         if not isFormLocked and fo_Settings.autoCancelForm then
---             fo_cancelForm()
---         end
---         return false
---     end
-
---     return true
--- end
 
 -- [[ Filter Registration ]]
 local _, class = UnitClass("player")
