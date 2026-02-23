@@ -2,7 +2,7 @@ fo_Settings = fo_Settings or {}
 
 fo_DefaultSettings = {
     selfCastEnabled = true,
-    announceTauntResist = true,
+    announceTauntResist = false,
     tauntSpells = {
         ["taunt"] = true,             -- Warrior
         ["mocking blow"] = true,      -- Warrior (Damage type)
