@@ -190,7 +190,7 @@ Full syntax:
 
 ```lua
 --If target does not have Rejuvenation, cast it depending on its health.
-/script if not fo_aura('rejuvenation') then fo_autoRankDual("rejuvenation", "insect swarm", 3, 5, "max", "30%", "60%")
+/script if not fo_aura('rejuvenation') then fo_autoRankDual("rejuvenation", "insect swarm")
 ```
 
 ```lua
@@ -282,11 +282,11 @@ To keep you informed without cluttering your screen, the item system uses two ty
 
 Optimized for one-line macros. Each checks for its specific form before attempting to cast.
 
-- `fo_bear(spellName, forceMouseover)`
-- `fo_cat(spellName, forceMouseover)`
-- `fo_moonkin(helpSpell, harmSpell, forceMouseover)`
-- `fo_tree(helpSpell, harmSpell, forceMouseover)`
-- `fo_caster(helpSpell, harmSpell, forceMouseover)`
+- `fo_bear(spellName)`                  -- Cast if in bear form
+- `fo_cat(spellName)`                   -- Cast if in Cat form
+- `fo_moonkin(helpSpell, harmSpell)`    -- Cast if in moonkin form
+- `fo_tree(helpSpell, harmSpell)`       -- Cast if in tree form
+- `fo_caster(helpSpell, harmSpell)`     -- Cast if in caster form
 
 Examples
 
@@ -296,7 +296,6 @@ Examples
 /script fo_cat('claw')
 /script fo_tree('regrowth(rank 3)', 'faerie fire', "m")
 /script fo_caster('healing touch(rank 4)', 'wrath')
-
 ```
 
 ### Shapeshifting
@@ -333,7 +332,8 @@ All core features can be toggled via the In-game Configuration Panel.
 2. **Intelligent Auto-Cancelform** Eliminates "Can't use that in this form" errors. When casting non-feral spells (e.g., Healing Touch or Rejuvenation), the addon utilizes a hidden Aura Scanner to instantly cancel your current form.
 3. **Advanced Form Protection (Form Lock)** To prevent accidental de-shifting during intense combat, you can enable Form Lock via the checkboxes. fo_cancelForm() still works.
 
-**Note:** These features only apply to spells triggered via this addon's scripts (e.g., `/script fo_cast()`). Standard action bar buttons remain unaffected to preserve vanilla-like control when needed.
+> [!IMPORTANT]
+> These features only apply to spells triggered via this addon's scripts (e.g., `/script fo_cast()`). Standard action bar buttons remain unaffected to preserve vanilla-like control when needed.
 
 ---
 
