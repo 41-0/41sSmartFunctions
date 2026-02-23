@@ -39,8 +39,12 @@ The engine automatically handles Mouseover, Target, and Self-cast logic.
 /script fo_castDual("Rejuvenation", "Moonfire")
 ```
 
+<<<<<<< HEAD
 > [!IMPORTANT]
 > Always place the Helpful spell first (left) and the Harmful spell second (right).
+=======
+#### [!IMPORTANT] Always place the Helpful spell first (left) and the Harmful spell second (right).
+>>>>>>> 631d1aedcc99edfa7497d7d2edbc8afb8b247040
 
 ## <a id="sts"></a>🎯 Smart Target System (STS)
 
@@ -163,10 +167,13 @@ Automatically notifies your group when your taunt-related abilities are resisted
 - **Shaman**: Earthshaker Slam
 
 - **Toggle**: Can be enabled or disabled via the **General** tab in the settings menu.
+<<<<<<< HEAD
 
 > [!IMPORTANT]
 > **May cause client crash when using "Goblin Brainwasher"**: 
 > Please disable this feature in the UI before changing your saved talent specialization to prevent potential client instability.
+=======
+>>>>>>> 631d1aedcc99edfa7497d7d2edbc8afb8b247040
 
 <BR>
 

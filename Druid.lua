@@ -176,7 +176,7 @@ function fo_cancelForm()
             if id == -1 then break end
 
             -- Safely scan tooltip to identify the form buff
-            local buffName = fo_Scan(function(scanner)
+            local buffName = fo_scan(function(scanner)
                 scanner:SetPlayerBuff(id)
                 local leftObj = _G["FoAuraScannerTextLeft1"]
                 return leftObj and leftObj:GetText()
