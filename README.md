@@ -169,7 +169,6 @@ Automatically notifies your group when your taunt-related abilities are resisted
 
 > [!IMPORTANT]
 > **May cause client crash when using "Goblin Brainwasher"**: 
-> Please disable this feature in the UI before changing your saved talent specialization to prevent potential client instability.
 
 <BR>
 
