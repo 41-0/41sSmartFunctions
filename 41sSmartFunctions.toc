@@ -3,7 +3,7 @@
 
 data.lua
 core.lua
-Druid.lua
+druid.lua
 _GUI.lua
 
 ## SavedVariables: fo_Settings
