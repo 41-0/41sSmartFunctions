@@ -168,7 +168,7 @@ Automatically notifies your group when your taunt-related abilities are resisted
 - **Toggle**: Can be enabled or disabled via the **General** tab in the settings menu.
 
 > [!IMPORTANT]
-> **May cause client crash when using "Goblin Brainwasher"**: 
+> **May cause client crash when using "Goblin Brainwasher"**
 
 <BR>
 
