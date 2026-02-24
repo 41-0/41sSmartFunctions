@@ -181,7 +181,7 @@ The `fo_autoRankDual` function acts as an intelligent abstraction layer for your
 
 ```lua
 /script fo_autoRankDual(helpSpell, harmSpell)
--- Defaults: Ranks 3/5/Max, Thresholds 25%/50%
+-- Defaults: Ranks 3/5/Max, Thresholds 25%/50% life missing
 ```
 
 Full syntax:
