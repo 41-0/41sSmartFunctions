@@ -4,7 +4,8 @@
 
 > [!IMPORTANT]
 > [SuperWoW](https://github.com/pepopo978/SuperwowInstallation) is required for this addon to function.<BR>
-> This AddOn is compatible with the English Client ONLY. Spell names and aura checks are hardcoded in English.
+> This AddOn is compatible with the English Client ONLY. Spell names and aura checks are hardcoded in English.<BR>
+>May cause client crash when reseting talent.
 
 <BR>
 
@@ -167,10 +168,8 @@ Automatically notifies your group when your taunt-related abilities are resisted
 
 - **Toggle**: Can be enabled or disabled via the **General** tab in the settings menu.
 
-> [!IMPORTANT]
-> **May cause client crash when using "Goblin Brainwasher"**
-
 <BR>
+
 
 ### 6. Smart Healing Engine (Experimental, not optimal)
 
@@ -313,16 +312,16 @@ Spam-safe shapeshifting. Unlike standard buttons, these will NOT cancel the form
 
 ### Shapeshift Detection
 
-These return true or false. Use them for custom `/script if` logic.
+These return true or false. Self Only. Use them for custom `/script if` logic.
 
-- `fo_isBear()` — True if in Bear or Dire Bear Form.
-- `fo_isCat()` — True if in Cat Form.
-- `fo_isTravel()` — True if in Travel Form.
-- `fo_isAqua()` — True if in Aquatic Form.
-- `fo_isMoonkin()` — True if in Moonkin Form.
-- `fo_isTree()` — True if in Tree of Life Form.
-- `fo_isFeral()` — True if in Bear or Cat Form.
-- `fo_isCaster()` — True if in Humanoid Form (no active shapeshift).
+- `fo_isBear()` — True if you are in Bear or Dire Bear Form.
+- `fo_isCat()` — True if you are in Cat Form.
+- `fo_isTravel()` — True if you are in Travel Form.
+- `fo_isAqua()` — True if you are in Aquatic Form.
+- `fo_isMoonkin()` — True if you are in Moonkin Form.
+- `fo_isTree()` — True if you are in Tree of Life Form.
+- `fo_isFeral()` — True if you are in Bear or Cat Form.
+- `fo_isCaster()` — True if you are in Humanoid Form (no active shapeshift).
 
 ### Feature: Auto Cancelform/Shapeshift and Form Protection
 

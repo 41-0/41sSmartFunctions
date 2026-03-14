@@ -2,6 +2,7 @@ fo_Settings = fo_Settings or {}
 
 fo_DefaultSettings = {
     selfCastEnabled = true,
+
     announceTauntResist = false,
     tauntSpells = {
         ["taunt"] = true,             -- Warrior
@@ -9,6 +10,8 @@ fo_DefaultSettings = {
         ["growl"] = true,             -- Druid
         ["hand of reckoning"] = true, -- Paladin
         ["earthshaker slam"] = true,  -- Shaman (TWoW Taunt)
+        ["counterspell"] = true,  -- Mage(Not a taunt)
+
     },
 
     autoCancelForm = true,
@@ -23,5 +26,7 @@ fo_DefaultSettings = {
     rageSpells = {               -- Spells to stop during Frenzied Regeneration
         ["maul"] = true,
         ["swipe"] = true,
+        ["savage bite"] = true,
+
     },
 }

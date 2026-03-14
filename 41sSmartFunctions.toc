@@ -3,6 +3,7 @@
 
 data.lua
 core.lua
+item.lua
 druid.lua
 _GUI.lua
 

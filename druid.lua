@@ -1,87 +1,80 @@
 -- ==========================================================
--- Universal Unit Texture Checker
+-- Form Detection Aliases
 -- ==========================================================
--- @param unit: "player", "target", "mouseover" etc.
--- @param texturePart: String to search for.
--- @return boolean: true if found.
-function fo_hasTexture(unit, texturePart)
-    if not UnitExists(unit) then return false end
-
-    -- Buffs and Debuffs are stored differently in 1.12.
-    -- We check both to be safe and universal.
-    local types = { "HELPFUL", "HARMFUL" }
-
-    for _, auraType in pairs(types) do
-        for i = 0, 31 do
-            -- Note: GetPlayerBuff is only for "player".
-            -- For other units, we use UnitBuff / UnitDebuff.
-            local texture
-            if unit == "player" and auraType == "HELPFUL" then
-                -- Player buffs are special in 1.12 for more detailed info,
-                -- but UnitBuff works for textures too.
-                texture = UnitBuff(unit, i + 1)
-            elseif auraType == "HELPFUL" then
-                texture = UnitBuff(unit, i + 1)
-            else
-                texture = UnitDebuff(unit, i + 1)
-            end
-
-            if not texture then break end
-            if string.find(texture, texturePart) then
-                return true
-            end
-        end
-    end
-    return false
+function fo_getDruidForm()
+	local i
+	local max = GetNumShapeshiftForms()
+	for i = 1 , max do
+		local _, name, active = GetShapeshiftFormInfo(i)
+		if active and active ~= 0 then
+			return name
+		end
+	end
+	return "Caster Form"
 end
 
--- ==========================================================
--- Form Detection Aliases
--- Description: Simple shorthand functions for Druid forms
--- ==========================================================
-
--- Internal helper to check presence of a texture by name (case-insensitive)
-local function _hasTex(texName)
-    -- Using the existing fo_hasTexture logic but simplified for internal use
-    for i = 1, 32 do
-        local b = UnitBuff("player", i)
-        if not b then break end
-        if string.find(string.lower(b), string.lower(texName)) then return true end
-    end
-    return false
+function fo_isCaster()
+	if fo_isDruid("player") then
+		if fo_getDruidForm() == "Caster Form" then
+			return true
+		end
+	end
+	return false
 end
 
 function fo_isBear()
-    return _hasTex("Ability_Racial_BearForm") or _hasTex("Ability_Druid_BearForm")
+	if fo_isDruid("player") then
+        return UnitPowerType("player") == 1
+   	end
 end
 
 function fo_isCat()
-    return _hasTex("Ability_Druid_CatForm")
-end
-
-function fo_isTravel()
-    return _hasTex("Ability_Druid_TravelForm")
-end
-
-function fo_isAqua()
-    return _hasTex("Ability_Druid_AquaticForm")
-end
-
-function fo_isMoonkin()
-    return _hasTex("Spell_Nature_ForceOfNature")
-end
-
-function fo_isTree()
-    return _hasTex("Ability_Druid_TreeofLife")
+	if fo_isDruid("player") then
+        return UnitPowerType("player") == 3
+	end
+	return false
 end
 
 function fo_isFeral()
     return fo_isBear() or fo_isCat()
 end
 
-function fo_isCaster()
-    return not (fo_isBear() or fo_isCat() or fo_isTravel() or fo_isAqua() or fo_isMoonkin() or fo_isTree())
+function fo_isAqua()
+	if fo_isDruid("player") then
+		if fo_getDruidForm() == 'Aquatic Form' then
+			return true
+		end
+	end
+	return false
 end
+
+function fo_isTravel()
+	if fo_isDruid("player") then
+		if fo_getDruidForm() == 'Travel Form' then
+			return true
+		end
+	end
+	return false
+end
+
+function fo_isMoonkin()
+	if fo_isDruid("player") then
+		if fo_getDruidForm() == 'Moonkin Form' then
+			return true
+		end
+	end
+	return false
+end
+
+function fo_isTree()
+	if fo_isDruid("player") then
+		if fo_getDruidForm() == 'Tree of Life Form' then
+			return true
+		end
+	end
+	return false
+end
+
 
 -- ==========================================================
 -- Spammable Shapeshift Script
@@ -142,9 +135,10 @@ function fo_castTreeForm()
     fo_cast("Tree of Life Form")
 end
 
-FO_DRUID_FORMS = { "Bear Form", "Cat Form", "Aquatic Form", "Travel Form", "Moonkin Form", "Tree of Life Form" }
 
 -- Function to return to Caster Form by cancelling any active shapebuff
+FO_DRUID_FORMS = { "Bear Form", "Cat Form", "Aquatic Form", "Travel Form", "Moonkin Form", "Tree of Life Form" }
+
 function fo_cancelForm()
     -- [1] Find the currently active shapeshift form index
     local currentFormIndex = nil
@@ -223,7 +217,6 @@ function fo_cat(spellName, ...)
     end
 end
 
-
 -- Moonkin Form (Dual support)
 function fo_moonkin(helpSpell, harmSpell, ...)
     if fo_isMoonkin() then
@@ -231,7 +224,6 @@ function fo_moonkin(helpSpell, harmSpell, ...)
         fo_castDual(helpSpell, harmSpell, unpack(args))
     end
 end
-
 
 -- Tree of Life Form (Dual support)
 function fo_tree(helpSpell, harmSpell, ...)
@@ -241,7 +233,6 @@ function fo_tree(helpSpell, harmSpell, ...)
     end
 end
 
-
 -- Humanoid (Caster) Form (Dual support)
 -- Moonkin Form (Dual support)
 function fo_caster(helpSpell, harmSpell, ...)
@@ -250,7 +241,6 @@ function fo_caster(helpSpell, harmSpell, ...)
         fo_castDual(helpSpell, harmSpell, unpack(args))
     end
 end
-
 
 
 -- ==========================================================
@@ -336,8 +326,6 @@ fo_formRequirements     = {
 }
 
 
-
-
 -- ==========================================================
 -- Druid Specific Filter Logic
 -- Handles form locks, auto-shapeshifting, and spell permissions.
@@ -391,6 +379,18 @@ function fo_druidFilter(spellName)
             isFormLocked = fo_Settings.lockTreeForm
         end
 
+        local isShapeshift = (baseName == "bear form") or (baseName == "dire bear form") or
+            (baseName == "cat form") or (baseName == "travel form") or
+            (baseName == "aquatic form") or (baseName == "moonkin form") or
+            (baseName == "tree of life form")
+
+        if isShapeshift then
+            if isFormLocked then
+                return false
+            end
+            return true
+        end
+
         -- [STEP 2] Check Feral Requirements (Auto-Shapeshift)
         local reqForms = fo_formRequirements[baseName]
         if reqForms then
@@ -427,7 +427,6 @@ function fo_druidFilter(spellName)
 
         -- [STEP 3] Check Caster Permissions (Bitwise Validation)
         local allowedMask = fo_spellPermissions[baseName]
-        if isFormLocked then return false end
 
         if allowedMask then
             local currentFlag = 0
@@ -442,13 +441,6 @@ function fo_druidFilter(spellName)
             local isAllowed = (math.mod(math.floor(allowedMask / currentFlag), 2) == 1)
             if isAllowed then return true end
 
-            local isShapeshift = (baseName == "bear form") or (baseName == "dire bear form") or
-                (baseName == "cat form") or (baseName == "travel form") or
-                (baseName == "aquatic form") or (baseName == "moonkin form") or
-                (baseName == "tree of life form")
-
-            if isShapeshift then return true end
-
             if not isFormLocked and fo_Settings.autoCancelForm then
                 fo_cancelForm()
             end
@@ -462,9 +454,6 @@ function fo_druidFilter(spellName)
     if not status then return true end
     return result
 end
-
-
-
 
 -- [[ Filter Registration ]]
 local _, class = UnitClass("player")

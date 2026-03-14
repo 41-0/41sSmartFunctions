@@ -217,7 +217,7 @@ CreateTabButton(1, "Global", "GLOBAL", 15)
 
 -- Tab Description
 AddPanelDescription(GlobalPanel,
-    "General settings and utility snippets for all classes.\nThese settings only apply to scripts this addon provides (Taunt alerts excluded).")
+    "General settings and utility snippets for all classes.\nThese settings only apply to scripts this addon provides.")
 
 
 -- Checkbox: Self Cast
@@ -236,7 +236,7 @@ G_SelfCast_CB:SetScript("OnLeave", function()
 end)
 
 
--- Checkbox: Self Cast
+-- Checkbox: Taunt Resist Announcer
 local G_TauntResistAnnounce_CB = CreateFrame("CheckButton", "fo_CB_TauntResistAnnounce", GlobalPanel,
     "UICheckButtonTemplate")
 G_TauntResistAnnounce_CB:SetPoint("TOPLEFT", GlobalPanel, "TOPLEFT", 20, -95)
@@ -252,6 +252,8 @@ end)
 G_TauntResistAnnounce_CB:SetScript("OnLeave", function()
     GameTooltip:Hide()
 end)
+
+
 
 -- Automated List (Starts from Y = -110)
 AddSnippetGuide(GlobalPanel, "--- Copy from here and paste into your macro (change arguments) ---")
@@ -363,7 +365,7 @@ Dru_SaveRageWhenFR_CB:SetScript("OnClick",
     function() fo_Settings.preventRageWasteDuringFR = this:GetChecked() and true or false end)
 Dru_SaveRageWhenFR_CB:SetScript("OnEnter", function()
     GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-    GameTooltip:SetText("Prevent using Maul and Swipe during Frenzied Regeneration.")
+    GameTooltip:SetText("Prevent using Maul, Swipe and Savage Bite during Frenzied Regeneration.")
     GameTooltip:Show()
 end)
 Dru_SaveRageWhenFR_CB:SetScript("OnLeave", function()
@@ -471,7 +473,8 @@ end
 -- Sync function to be called anytime
 function fo_SyncUI()
     if fo_CB_Global_SelfCast then fo_CB_Global_SelfCast:SetChecked(fo_Settings.selfCastEnabled) end
-    if G_TauntResistAnnounce_CB then G_TauntResistAnnounce_CB:SetChecked(fo_Settings.announceTauntResist) end
+    if fo_CB_TauntResistAnnounce then fo_CB_TauntResistAnnounce:SetChecked(fo_Settings.announceTauntResist) end
+
     if Dru_AutoCancelForm_CB then Dru_AutoCancelForm_CB:SetChecked(fo_Settings.autoCancelForm) end
     if Dru_AutoShapeshift_CB then Dru_AutoShapeshift_CB:SetChecked(fo_Settings.autoShapeshift) end
     if Dru_PrioritizeBear_CB then Dru_PrioritizeBear_CB:SetChecked(fo_Settings.prioritizeBear) end

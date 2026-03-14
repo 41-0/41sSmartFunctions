@@ -35,15 +35,9 @@ function fo_scan(func)
         -- DEFAULT_CHAT_FRAME:AddMessage("Scan Error: " .. tostring(result))
         return nil
     end
-
-    return result
+    -- scanner:Hide()
+    return result, scanner
 end
-
-
-
--- keywords used to identify forms/stances in tooltips
--- Used by the scanner to identify buffs that should prevent auto-unshifting
-FO_PROTECTED_KEYWORDS = { "Form", "Stance", "Seal" }
 
 -- ==========================================================
 -- Public API (Functions to use in Macros)
@@ -74,6 +68,49 @@ function fo_showTargetTexture()
     end
 end
 
+-- ==========================================================
+-- Class Detection
+-- ==========================================================
+
+function fo_class(class, unit)
+	if class then
+		local unit = unit or "target"
+		local _, c = UnitClass(unit)
+		if c then
+			if string.lower(c) == string.lower(class) then
+				return true
+			end
+		end
+	end
+	return false
+end
+function fo_isDruid(unit)
+	return fo_class("DRUID", unit)
+end
+function fo_isHunter(unit)
+	return fo_class("HUNTER", unit)
+end
+function fo_isPaladin(unit)
+	return fo_class("PALADIN", unit)
+end
+function fo_isPriest(unit)
+	return fo_class("PRIEST", unit)
+end
+function fo_isMage(unit)
+	return fo_class("MAGE", unit)
+end
+function fo_isRogue(unit)
+	return fo_class("ROGUE", unit)
+end
+function fo_isShaman(unit)
+	return fo_class("SHAMAN", unit)
+end
+function fo_isWarlock(unit)
+	return fo_class("WARLOCK", unit)
+end
+function fo_isWarrior(unit)
+	return fo_class("WARRIOR", unit)
+end
 
 -- ==========================================================
 -- Universal Logic Engine
@@ -300,8 +337,11 @@ local function _CheckAuraByName(spellName, unit)
             end)
 
             if isMatch then
+                fo_GetScanner():Hide()
                 return true
             end
+
+            fo_GetScanner():Hide()
 
             i = i + 1
             if i > 32 then break end
@@ -469,127 +509,6 @@ end
 
 
 -- ==========================================================
--- Equipment Checker
--- ==========================================================
-
--- Internal helper to scan tooltips for specific keywords.
-function fo_scanEquip(slotID, keyword)
-    if not UnitName("player") then return false end
-    if not GetInventoryItemLink("player", slotID) then return false end
-
-local link = GetInventoryItemLink("player", slotID)
--- DEBUG
--- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Item Link for slot " .. slotID .. " is: " .. tostring(link))
-
-
-    local hasItem = fo_scan(function(scanner)
-        return scanner:SetInventoryItem("player", slotID)
-    end)
-
-    if not hasItem then 
-        -- DEBUG
-        -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: fo_scanEquip - No item in slot " .. slotID)
-        return false 
-    end
-
-    -- Get the number of lines in a tooltip
-    local numLines = _G["FoAuraScanner"]:NumLines()
-    local k = strlower(keyword)
-
-    -- DEBUG
-    -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Scanning " .. numLines .. " lines for: " .. keyword)
-
-    for i = 1, numLines do
-        local leftObj = _G["FoAuraScannerTextLeft" .. i]
-        local left = (leftObj and leftObj:GetText()) or ""
-        
-        local rightObj = _G["FoAuraScannerTextRight" .. i]
-        local right = (rightObj and rightObj:GetText()) or ""
-
-        -- DEBUG
-        -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Line " .. i .. ": [" .. left .. "] [" .. right .. "]")
-
-        local content = strlower(left .. " " .. right)
-        if strfind(content, k, 1, true) then
-            -- DEBUG
-            -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Keyword found on line " .. i)
-            return true
-        end
-    end
-    
-    return false
-end
-
-
-
--- fo_occupied: Returns true if the specified slot is occupied by an item.
-function fo_occupied(s)
-    return GetInventoryItemLink("player", s) ~= nil
-end
-
--- fo_occupiedBy: Returns true if the slot is occupied by an item that contains the keyword.
-function fo_occupiedBy(s, k)
-    return fo_occupied(s) and fo_scanEquip(s, k)
-end
-
--- fo_occupiedNotBy: Returns true if the slot is occupied by an item that does NOT contain the keyword.
-function fo_occupiedNotBy(s, k)
-    return fo_occupied(s) and not fo_scanEquip(s, k)
-end
-
-
-
--- Returns true if a Shield is equipped
-function fo_hasShield()
-    return fo_occupiedBy(17, "Shield")
-end
-
--- Returns true if a Two-Handed weapon is equipped
-function fo_has2H()
-    -- Check for "Two-Hand" (matches Two-Handed too)
-    return fo_occupiedBy(16, "Two-Hand")
-end
-
--- Returns true if Dual-Wielding weapons
-function fo_hasDW()
-    return fo_occupied(16) and fo_occupiedNotBy(17, "Held in Off-Hand") and fo_occupiedNotBy(17, "Shield")
-end
-
-
-
--- -- Returns true if a Shield is equipped
--- function fo_hasShield()
---     return fo_scanEquip(17, "Shield")
--- end
-
--- -- Returns true if a Two-Handed weapon is equipped
--- function fo_has2H()
---     -- Check for "Two-Hand" (matches Two-Handed too)
---     return fo_scanEquip(16, "Two-Hand")
--- end
-
--- -- Returns true if Dual-Wielding weapons
--- function fo_hasDW()
---     -- 1. Check Main-hand (Slot 16)
---     local mainItem = GetInventoryItemLink("player", 16)
---     if not mainItem then return false end -- Main hand is empty
-
---     -- 2. Check Off-hand (Slot 17)
---     local offItem = GetInventoryItemLink("player", 17)
---     if not offItem or fo_hasShield() then return false end -- Off-hand is empty or a shield
-
---     -- 3. Verify Off-hand is actually a weapon (Excluding "Held in Off-hand" items)
---     local weaponTypes = { "One-Hand", "Dagger", "Sword", "Axe", "Mace", "Fist" }
---     for _, wType in ipairs(weaponTypes) do
---         if fo_scanEquip(17, wType) then
---             return true
---         end
---     end
-
---     return false
--- end
-
--- ==========================================================
 -- Spellbook Checker
 -- ==========================================================
 
@@ -628,9 +547,45 @@ function fo_getMaxRank(spellName)
     return maxRank > 0 and maxRank or 1
 end
 
+
 -- ==========================================================
 -- Combat Utilities
 -- ==========================================================
+
+local fo_isMeleeActive = false  -- Flag based on PLAYER_ENTER_COMBAT
+local fo_attackSlot = nil       -- Cached slot for Attack
+local fo_shootSlot = nil        -- Cached slot for Shoot (Wand)
+
+-- Update the cache for action bar slots to avoid 120-loop every frame
+function fo_UpdateActionCache()
+    fo_attackSlot = nil
+    fo_shootSlot = nil
+
+    -- Get the texture of the currently equipped wand (Slot 18 is Ranged)
+    local rangedTexture = GetInventoryItemTexture("player", 18)
+
+    for i = 1, 120 do
+        -- 1. Melee Attack (Standard API)
+        if IsAttackAction(i) then
+            fo_attackSlot = i
+        end
+
+        -- 2. Shoot (Wand)
+        -- Compare the action's texture with the equipped wand's texture
+        local actionTexture = GetActionTexture(i)
+        if actionTexture and rangedTexture and actionTexture == rangedTexture then
+            fo_shootSlot = i
+        end
+
+        -- Optimization: Stop if both found
+        if fo_attackSlot and fo_shootSlot then break end
+    end
+end
+
+
+
+
+
 
 -- Returns true if the player is currently in combat
 function fo_isCombat()
@@ -664,42 +619,32 @@ end
 
 -- Spamsafe stealth entry with Form-awareness for Druids.
 function fo_startStealth()
-    if fo_isStealth() then return end
-
-    -- 1. Druid Check: If in Cat Form, ONLY try Prowl.
-    if fo_isCat and fo_isCat() then
-        if fo_hasSpell("Prowl") then
-            CastSpellByName("Prowl")
-            return
-        end
-        -- Note: If we are a Cat but don't have Prowl yet,
-        -- we still shouldn't use Shadowmeld here (usually).
-
-        -- 2. Non-Cat states (Humanoid, etc.)
+    if fo_isStealth() or fo_isCombat() then
+        return
+    end
+    local _, class = UnitClass("player")
+    if class == "ROGUE" then
+        CastSpellByName("Stealth")
+    elseif class == "DRUID" and UnitPowerType("player") == 3 then
+        CastSpellByName("Prowl")
     else
-        -- Prioritize Rogue Stealth first
-        if fo_hasSpell("Stealth") then
-            CastSpellByName("Stealth")
-            return
-        end
-
-        -- Finally, use Shadowmeld if available
-        if fo_hasSpell("Shadowmeld") then
-            CastSpellByName("Shadowmeld")
-            return
-        end
+        CastSpellByName("Shadowmeld")
     end
 end
 
--- Checks if the player is currently auto-attacking.
+-- Main function to check if Melee Attack is active (Two-tier detection)
 function fo_isAttacking()
-    for i = 1, 120 do
-        if IsAttackAction(i) and IsCurrentAction(i) then
+    if not fo_attackSlot or not IsAttackAction(fo_attackSlot) then
+        fo_UpdateActionCache()
+    end
+    if fo_attackSlot then
+        if IsCurrentAction(fo_attackSlot) then
             return true
         end
     end
     return false
 end
+
 
 -- Starts auto-attack without toggling off.
 -- Does not break Stealth/Shadowmeld unless 'force' is provided.
@@ -712,368 +657,33 @@ function fo_startAttack(force)
     end
 end
 
--- Helper: Checks if any "Auto Repeat" action (like Shoot or Auto Shot) is currently active.
-function fo_isShooting()
-    for i = 1, 120 do
-        if IsAutoRepeatAction(i) and IsCurrentAction(i) then
-            return true
-        end
-    end
-    return false
-end
+
+-- function fo_isShooting()
+--     if not fo_shootSlot or GetActionTexture(fo_shootSlot) == nil then
+--         fo_UpdateActionCache()
+--     end
+
+--     if fo_shootSlot then
+--         -- Check if it's already "marching ants" (active)
+--         if IsAutoRepeatAction(fo_shootSlot) == 1 then
+--             return true -- Already shooting, do nothing
+--         else
+--             return false
+--         end
+--     end
+-- end
 
 
+-- function fo_startShoot()
+--     if fo_isShooting() then
+--         -- Debug
+--         -- DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[Shooting]")
+--         return
+--     else
+--         CastSpellByName("Shoot")
+--     end
+-- end
 
-function fo_startShoot()
-    -- Check if already shooting
-    if fo_isShooting() then 
-        return 
-    end
-
-    -- Check if scan finds anything
-    local found = false
-    local weapons = {
-        {"crossbow", "Shoot Crossbow"},
-        {"wand", "Shoot"},
-        {"bow", "Shoot Bow"},
-        {"gun", "Shoot Gun"},
-        {"thrown", "Throw"}
-    }
-
-    for _, data in ipairs(weapons) do
-        if fo_scanEquip(18, data[1]) then
-            -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Weapon found: " .. data[1] .. ", casting: " .. data[2])
-            CastSpellByName(data[2])
-            found = true
-            break
-        end
-    end
-
-    -- if not found then
-    --     DEFAULT_CHAT_FRAME:AddMessage("DEBUG: No valid weapon detected in slot 18.")
-    -- end
-end
-
-
--- Stops all current actions: Spell casting, Channeling, Auto-Attack, and Shooting.
-function fo_break()
-    -- 1. Stop Spell Casting & Channeling
-    SpellStopCasting()
-
-    -- 2. Stop Auto-Attack (if active)
-    if fo_isAttacking() then
-        AttackTarget()
-    end
-
-    -- 3. Stop Auto-Shot / Wand Shooting
-    if fo_isShooting() then
-        SpellStopCasting()
-    end
-end
-
--- ==========================================================
--- GENERIC ITEM UTILITY
--- ==========================================================
-
---- Checks the total count of an item by name in all bags.
-function fo_GetItemCount(targetName)
-    local count = 0
-    for bag = 0, 4 do
-        for slot = 1, GetContainerNumSlots(bag) do
-            local link = GetContainerItemLink(bag, slot)
-            if link then
-                -- Extract item name from the link: "|c...[Item Name]|h..."
-                local _, _, name = string.find(link, "%[(.*)%]")
-                if name == targetName then
-                    local _, stackCount = GetContainerItemInfo(bag, slot)
-                    count = count + (stackCount or 0)
-                end
-            end
-        end
-    end
-    return count
-end
-
--- Internal helper: Scans a list and uses the first available item found in bags
-local function _fo_ScanAndUseItem(list, categoryLabel)
-    for _, name in ipairs(list) do
-        -- Scan bags (0 to 4)
-        for bag = 0, 4 do
-            for slot = 1, GetContainerNumSlots(bag) do
-                local link = GetContainerItemLink(bag, slot)
-                -- Check if the item in this slot matches the name in the list
-                if link and string.find(link, name) then
-                    UseContainerItem(bag, slot)
-                    -- Optional logging
-                    -- DEFAULT_CHAT_FRAME:AddMessage("Used: " .. name .. " (" .. (categoryLabel or "Item") .. ")")
-                    return true
-                end
-            end
-        end
-    end
-    return false
-end
-
-
-
-
-
--- PUBLIC API: Check if an item is ready to use
--- Works for both equipped items and items in bags
-function fo_itemCD(name)
-    if not UnitExists("player") then return false end -- Added safety guard
-    if not name or name == "" then return false end
-    local target = string.lower(name)
-
-    -- Scan Equipment Slots
-    for slot = 1, 19 do
-        local link = GetInventoryItemLink("player", slot)
-        if link and string.find(string.lower(link), target) then
-            local start, duration = GetInventoryItemCooldown("player", slot)
-            return (start and start > 0 and duration and duration > 0) -- Added nil check
-        end
-    end
-
-    -- Scan Bags
-    for bag = 0, 4 do
-        for slot = 1, GetContainerNumSlots(bag) do
-            local link = GetContainerItemLink(bag, slot)
-            if link and string.find(string.lower(link), target) then
-                local start, duration = GetContainerItemCooldown(bag, slot)
-                return (start and start > 0 and duration and duration > 0)
-            end
-        end
-    end
-    return false
-end
-
--- PUBLIC API: Use item by name with smart CD checking and user feedback
-function fo_item(name)
-    if not UnitExists("player") then return false end -- Added safety guard
-    if not name or name == "" then return false end
-    local target = string.lower(name)
-    local found = false
-    local isEquipped, bagID, slotID = false, nil, nil
-
-    -- 1. Search for the item safely
-    -- We use a protected block to prevent access errors during UI rebuilds
-    local ok = pcall(function()
-        for slot = 1, 19 do
-            local link = GetInventoryItemLink("player", slot)
-            if link and string.find(string.lower(link), target) then
-                isEquipped, slotID, found = true, slot, true; break
-            end
-        end
-        if not found then
-            for bag = 0, 4 do
-                for slot = 1, GetContainerNumSlots(bag) do
-                    local link = GetContainerItemLink(bag, slot)
-                    if link and string.find(string.lower(link), target) then
-                        bagID, slotID, found = bag, slot, true; break
-                    end
-                end
-                if found then break end
-            end
-        end
-    end)
-
-    if not ok or not found then return false end
-
-    -- 2. CD Check (using your updated safe version)
-    if fo_itemCD(name) then
-        UIErrorsFrame:AddMessage(name .. " is not ready yet.", 1.0, 1.0, 0.0)
-        return false
-    end
-
-    -- 3. Execution
-    if isEquipped then
-        UseInventoryItem(slotID)
-    else
-        UseContainerItem(bagID, slotID)
-    end
-    return true
-end
-
--- Automatically finds and uses the highest priority bandage in your bags.
-function fo_bandage(targetArg) -- [FIX] Added targetArg here
-    -- Priority list of bandages
-    local bandages = {
-        "Crystal Infused Bandage",
-        "Alterac Heavy Runecloth Bandage",
-        "Arathi Basin Runecloth Bandage",
-        "Defiler's Runecloth Bandage",
-        "Heavy Runecloth Bandage",
-        "Runecloth Bandage",
-        "Arathi Basin Mageweave Bandage",
-        "Highlander's Mageweave Bandage",
-        "Warsong Gulch Mageweave Bandage",
-        "Defiler's Mageweave Bandage",
-        "Heavy Mageweave Bandage",
-        "Mageweave Bandage",
-        "Arathi Basin Silk Bandage",
-        "Highlander's Silk Bandage",
-        "Warsong Gulch Silk Bandage",
-        "Defiler's Silk Bandage",
-        "Heavy Silk Bandage",
-        "Silk Bandage",
-        "Heavy Wool Bandage",
-        "Wool Bandage",
-        "Heavy Linen Bandage",
-        "Linen Bandage"
-    }
-
-    -- 1. Scan bags for the best available bandage
-    local targetBandage = nil
-    for _, name in ipairs(bandages) do
-        if fo_GetItemCount(name) > 0 then
-            targetBandage = name
-            break
-        end
-    end
-
-    if not targetBandage then
-        UIErrorsFrame:AddMessage("No bandages found!", 1.0, 0.1, 0.1)
-        return
-    end
-
-    -- 2. Target Normalization (Fixed logic)
-    local unit
-    local t = string.lower(tostring(targetArg or ""))
-
-    if t == "s" or t == "self" or t == "player" then
-        unit = "player"
-    elseif targetArg and targetArg ~= "" then
-        unit = targetArg
-    else
-        -- [FIX] Updated to match the new _GetSmartTarget(mode, arg1, arg2) signature
-        -- Passing nil for mode as it's a standard cast, not an RSCheck
-        unit = _GetSmartTarget(nil, targetArg)
-    end
-
-    -- 3. Execution using Target Swap Method
-    if UnitExists(unit) then
-        -- Prevent using bandage on someone who already has "Recently Bandaged" debuff
-        -- (Optional logic can be added here)
-
-        local currentTargetExists = UnitExists("target")
-        local isSelf = UnitIsUnit("player", unit)
-
-        if not UnitIsUnit("target", unit) then
-            TargetUnit(unit)
-            UseItemByName(targetBandage)
-            if currentTargetExists then
-                TargetLastTarget()
-            else
-                ClearTarget()
-            end
-        else
-            UseItemByName(targetBandage)
-        end
-    end
-end
-
--- Use best Health Potion
-function fo_healthPot()
-    local list = {
-        "Major Healing Potion",
-        "Combat Healing Potion",
-        "Superior Healing Potion",
-        "Greater Healing Potion",
-        "Healing Potion",
-        "Lesser Healing Potion",
-        "Minor Healing Potion"
-    }
-    return _fo_ScanAndUseItem(list, "Health Potion")
-end
-
--- Use best Mana Potion
-function fo_manaPot()
-    local list = {
-        "Major Mana Potion",
-        "Combat Mana Potion",
-        "Superior Mana Potion",
-        "Greater Mana Potion",
-        "Mana Potion",
-        "Lesser Mana Potion",
-        "Minor Mana Potion"
-    }
-    return _fo_ScanAndUseItem(list, "Mana Potion")
-end
-
--- ==========================================================
--- Dismount Logic
--- ==========================================================
--- List of specific mount textures found on this server
-FO_MOUNT_TEXTURES = {
-    "inv_pet_speedy",
-    "ability_mount_",
-    "spell_nature_swiftness",
-    "inv_misc_foot_01",
-    "ability_druid_travelform",
-    "ability_druid_aquaticform"
-}
--- Dismount Protection - any buff if its NAME contains these words
-FO_PROTECTED_KEYWORDS = {
-    "Form",    -- Cat Form, Bear Form, Moonkin Form, etc.
-    "Aura",    -- Devotion Aura, Sanctity Aura, etc.
-    "Stance",  -- Battle Stance, Defensive Stance, etc.
-    "Stealth", -- Stealth, Prowl
-    "Shadowform"
-}
-
-
-function fo_dismount()
-    if not UnitExists("player") then return false end
-
-    for i = 0, 31 do
-        local id = GetPlayerBuff(i, "HELPFUL")
-        if id == -1 then break end
-
-        if GetPlayerBuffTimeLeft(id) == 0 then
-            local texture = GetPlayerBuffTexture(id)
-            if texture then
-                local texLower = strlower(texture)
-                local isMountCandidate = false
-
-                -- Check if the texture matches known mount patterns
-                for _, pattern in pairs(FO_MOUNT_TEXTURES) do
-                    if strfind(texLower, strlower(pattern)) then
-                        isMountCandidate = true
-                        break
-                    end
-                end
-
-                if isMountCandidate then
-                    -- Safely scan tooltip to get the exact buff name
-                    local buffName = fo_scan(function(scanner)
-                        scanner:SetPlayerBuff(id)
-                        local leftObj = _G["FoAuraScannerTextLeft1"]
-                        return leftObj and leftObj:GetText()
-                    end) or ""
-
-                    local buffNameLower = strlower(buffName)
-                    local isProtected = false
-
-                    -- Check against protection keywords
-                    if buffNameLower ~= "travel form" and buffNameLower ~= "aquatic form" then
-                        for _, key in pairs(FO_PROTECTED_KEYWORDS) do
-                            if strfind(buffNameLower, strlower(key)) then
-                                isProtected = true
-                                break
-                            end
-                        end
-                    end
-
-                    if not isProtected then
-                        CancelPlayerBuff(id)
-                        return true
-                    end
-                end
-            end
-        end
-    end
-    return false
-end
 
 -- ==========================================================
 -- Spell Announcer: Logic & Registration
@@ -1151,9 +761,6 @@ local function ExecuteTauntAnnounce(combatLogMsg)
 end
 
 
-
-
-
 -- ==========================================================
 -- Modular Healing Engines
 -- ==========================================================
@@ -1197,16 +804,27 @@ end
 -- ==========================================================
 -- MAIN EVENT HANDLER (Integrated & Fixed)
 -- ==========================================================
+
+
 local isAnnounceAllowed = false
+local fo_attackSlot = nil       -- Cache for Attack button
+local fo_shootSlot = nil        -- Cache for Shoot button
 local FO_EVENT_HANDLER = CreateFrame("Frame")
 
 -- [1] Utility Events
 FO_EVENT_HANDLER:RegisterEvent("VARIABLES_LOADED")
+FO_EVENT_HANDLER:RegisterEvent("PLAYER_ENTERING_WORLD")
+FO_EVENT_HANDLER:RegisterEvent("UNIT_INVENTORY_CHANGED")
+FO_EVENT_HANDLER:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+
 -- [2] Combat State Events for Dynamic Registration
 FO_EVENT_HANDLER:RegisterEvent("PLAYER_REGEN_DISABLED")
 FO_EVENT_HANDLER:RegisterEvent("PLAYER_REGEN_ENABLED")
+
+-- [3] Combat Log Events
 FO_EVENT_HANDLER:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
 -- FO_EVENT_HANDLER:UnregisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
+
 
 FO_EVENT_HANDLER:SetScript("OnEvent", function()
     -- DEBUGG
@@ -1235,15 +853,25 @@ FO_EVENT_HANDLER:SetScript("OnEvent", function()
         return
     end
 
-    
-    -- CASE 2: Dynamic Combat Log Monitoring
+    -- CASE 3: Action Bar Cache Management
+    if event == "ACTIONBAR_SLOT_CHANGED" or event == "UNIT_INVENTORY_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
+        if event == "UNIT_INVENTORY_CHANGED" and arg1 ~= "player" then
+            return
+        end
+        fo_attackSlot = nil
+        fo_shootSlot = nil
+        fo_UpdateActionCache()
+        return
+    end
+
+    -- CASE 4: Dynamic Combat Log Monitoring
     -- We register the combat log event only when entering combat 
     -- to prevent memory corruption during talent resets or reloads.
     if event == "PLAYER_REGEN_DISABLED" then
         isAnnounceAllowed = true
         return
     end
-    
+
     if event == "PLAYER_REGEN_ENABLED" then
         isAnnounceAllowed = false
         -- DEBUGG
@@ -1251,7 +879,7 @@ FO_EVENT_HANDLER:SetScript("OnEvent", function()
         return
     end
 
-    -- CASE 3: Process Combat Log
+    -- CASE 5: Process Combat Log
     if event == "CHAT_MSG_SPELL_SELF_DAMAGE" then
         -- DEBUGG
         -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Allowed=" .. tostring(isAnnounceAllowed))
@@ -1261,6 +889,5 @@ FO_EVENT_HANDLER:SetScript("OnEvent", function()
             ExecuteTauntAnnounce(a1)
         end
         return
-
     end
 end)
