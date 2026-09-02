@@ -686,82 +686,6 @@ end
 
 
 -- ==========================================================
--- Spell Announcer: Logic & Registration
--- ==========================================================
-
--- Helper: Converts "healing touch" to "Healing Touch"
-local function ToTitleCase(str)
-    return (string.gsub(str, "%f[%a]%a", string.upper))
-end
-
--- Helper: Determines the best chat channel
-local function GetBestChannel()
-    if GetNumRaidMembers() > 0 then return "RAID" end
-    if GetNumPartyMembers() > 0 then return "PARTY" end
-    return "PRINT"
-end
-
--- Main execution: Process combat log messages
-local isTalentUpdating = false
-
-local function ExecuteTauntAnnounce(combatLogMsg)
-   
-    -- Monitor ONLY while in combat AND in a group
-    -- GetNumPartyMembers() and GetNumRaidMembers() check group status
-    local inGroup = (GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0)
-    if not UnitAffectingCombat("player") or not inGroup then 
-        return 
-    end
-    
-    -- Guard 3: Validation
-    if not combatLogMsg or not fo_Settings or not fo_Settings.announceTauntResist then 
-        return 
-    end
-
-    -- Guard 4: Protected execution
-    local status = pcall(function()
-        local lowerLog = string.lower(combatLogMsg)
-
-        -- 1. Identify if a taunt spell is in the log
-        local foundSpell = nil
-        for spell, _ in pairs(fo_Settings.tauntSpells) do
-            if string.find(lowerLog, spell) then
-                foundSpell = spell
-                break
-            end
-        end
-
-        if not foundSpell then return end
-
-        -- 2. Detect failure types
-        local failureKeywords = { "resisted", "missed", "dodged", "parried", "immune" }
-        local foundFail = nil
-        for _, word in pairs(failureKeywords) do
-            if string.find(lowerLog, word) then
-                foundFail = string.upper(word)
-                break
-            end
-        end
-
-        -- 3. Output announcement
-        if foundFail then
-            local displayName = "[" .. ToTitleCase(foundSpell) .. "]"
-            local finalMsg = displayName .. " " .. foundFail .. "!"
-            local channel = GetBestChannel()
-            
-            if channel == "PRINT" then
-                DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[Taunt Alert]:|r " .. finalMsg)
-            else
-                SendChatMessage(finalMsg, channel)
-            end
-        end
-    end)
-    
-    if not status then return end
-end
-
-
--- ==========================================================
 -- Modular Healing Engines
 -- ==========================================================
 
@@ -806,9 +730,6 @@ end
 -- ==========================================================
 
 
-local isAnnounceAllowed = false
-local fo_attackSlot = nil       -- Cache for Attack button
-local fo_shootSlot = nil        -- Cache for Shoot button
 local FO_EVENT_HANDLER = CreateFrame("Frame")
 
 -- [1] Utility Events
@@ -817,22 +738,11 @@ FO_EVENT_HANDLER:RegisterEvent("PLAYER_ENTERING_WORLD")
 FO_EVENT_HANDLER:RegisterEvent("UNIT_INVENTORY_CHANGED")
 FO_EVENT_HANDLER:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 
--- [2] Combat State Events for Dynamic Registration
-FO_EVENT_HANDLER:RegisterEvent("PLAYER_REGEN_DISABLED")
-FO_EVENT_HANDLER:RegisterEvent("PLAYER_REGEN_ENABLED")
-
--- [3] Combat Log Events
-FO_EVENT_HANDLER:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
--- FO_EVENT_HANDLER:UnregisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
-
-
 FO_EVENT_HANDLER:SetScript("OnEvent", function()
     -- DEBUGG
     -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Event received: " .. tostring(event))
 
     local event = event
-    local a1 = arg1
-
     -- CASE 1: Settings Initialization
     if event == "VARIABLES_LOADED" then
         fo_Settings = fo_Settings or {}
@@ -864,30 +774,4 @@ FO_EVENT_HANDLER:SetScript("OnEvent", function()
         return
     end
 
-    -- CASE 4: Dynamic Combat Log Monitoring
-    -- We register the combat log event only when entering combat 
-    -- to prevent memory corruption during talent resets or reloads.
-    if event == "PLAYER_REGEN_DISABLED" then
-        isAnnounceAllowed = true
-        return
-    end
-
-    if event == "PLAYER_REGEN_ENABLED" then
-        isAnnounceAllowed = false
-        -- DEBUGG
-        -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: isAnnounceAllowed is now " .. tostring(isAnnounceAllowed))
-        return
-    end
-
-    -- CASE 5: Process Combat Log
-    if event == "CHAT_MSG_SPELL_SELF_DAMAGE" then
-        -- DEBUGG
-        -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Allowed=" .. tostring(isAnnounceAllowed))
-
-        -- Safety Guard
-        if isAnnounceAllowed and fo_Settings and fo_Settings.tauntSpells and fo_Settings.announceTauntResist then
-            ExecuteTauntAnnounce(a1)
-        end
-        return
-    end
 end)

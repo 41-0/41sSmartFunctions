@@ -83,6 +83,14 @@ MyBtn:SetScript("OnClick", function()
     if ConfigFrame:IsVisible() then ConfigFrame:Hide() else ConfigFrame:Show() end
     PlaySound(ConfigFrame:IsVisible() and "igMainMenuOpen" or "igMainMenuClose")
 end)
+MyBtn:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(this, "ANCHOR_LEFT")
+    GameTooltip:SetText("41's Smart Functions")
+    GameTooltip:Show()
+end)
+MyBtn:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+end)
 
 -- ==========================================
 -- 4. UI Component Factories & Auto-Layout
@@ -234,25 +242,6 @@ end)
 G_SelfCast_CB:SetScript("OnLeave", function()
     GameTooltip:Hide()
 end)
-
-
--- Checkbox: Taunt Resist Announcer
-local G_TauntResistAnnounce_CB = CreateFrame("CheckButton", "fo_CB_TauntResistAnnounce", GlobalPanel,
-    "UICheckButtonTemplate")
-G_TauntResistAnnounce_CB:SetPoint("TOPLEFT", GlobalPanel, "TOPLEFT", 20, -95)
-_G[G_TauntResistAnnounce_CB:GetName() .. "Text"]:SetText("Announce Taunt Resists (supports all tanking classes)")
-G_TauntResistAnnounce_CB:SetChecked(fo_Settings.announceTauntResist)
-G_TauntResistAnnounce_CB:SetScript("OnClick",
-    function() fo_Settings.announceTauntResist = this:GetChecked() and true or false end)
-G_TauntResistAnnounce_CB:SetScript("OnEnter", function()
-    GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-    GameTooltip:SetText("Announce if Taunt spells are resisted.")
-    GameTooltip:Show()
-end)
-G_TauntResistAnnounce_CB:SetScript("OnLeave", function()
-    GameTooltip:Hide()
-end)
-
 
 
 -- Automated List (Starts from Y = -110)
@@ -473,8 +462,6 @@ end
 -- Sync function to be called anytime
 function fo_SyncUI()
     if fo_CB_Global_SelfCast then fo_CB_Global_SelfCast:SetChecked(fo_Settings.selfCastEnabled) end
-    if fo_CB_TauntResistAnnounce then fo_CB_TauntResistAnnounce:SetChecked(fo_Settings.announceTauntResist) end
-
     if Dru_AutoCancelForm_CB then Dru_AutoCancelForm_CB:SetChecked(fo_Settings.autoCancelForm) end
     if Dru_AutoShapeshift_CB then Dru_AutoShapeshift_CB:SetChecked(fo_Settings.autoShapeshift) end
     if Dru_PrioritizeBear_CB then Dru_PrioritizeBear_CB:SetChecked(fo_Settings.prioritizeBear) end

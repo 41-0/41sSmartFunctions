@@ -155,23 +155,7 @@ Stops your casting (not channeling), auto attack, shoot.
 
 <BR>
 
-### 5. Taunt Resist Announcements
-
-Automatically notifies your group when your taunt-related abilities are resisted or fail to land.
-
-- **How it works**: Monitors your combat log and announces failures (Resist, Miss, Dodge, Parry, Immune) to the appropriate channel (Party, Raid, or Instance).
-- **Supported Spells**:
-- **Warrior**: Taunt, Mocking Blow
-- **Druid**: Growl
-- **Paladin**: Hand of Reckoning
-- **Shaman**: Earthshaker Slam
-
-- **Toggle**: Can be enabled or disabled via the **General** tab in the settings menu.
-
-<BR>
-
-
-### 6. Smart Healing Engine (Experimental, not optimal)
+### 5. Smart Healing Engine (Experimental, not optimal)
 
 The `fo_autoRankDual` function acts as an intelligent abstraction layer for your healing rotation. Instead of manually checking health levels and calculating ranks in your main macros, this function dynamically evaluates the current combat state and constructs the appropriate spell command.
 

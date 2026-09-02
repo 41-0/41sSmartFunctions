@@ -3,17 +3,6 @@ fo_Settings = fo_Settings or {}
 fo_DefaultSettings = {
     selfCastEnabled = true,
 
-    announceTauntResist = false,
-    tauntSpells = {
-        ["taunt"] = true,             -- Warrior
-        ["mocking blow"] = true,      -- Warrior (Damage type)
-        ["growl"] = true,             -- Druid
-        ["hand of reckoning"] = true, -- Paladin
-        ["earthshaker slam"] = true,  -- Shaman (TWoW Taunt)
-        ["counterspell"] = true,  -- Mage(Not a taunt)
-
-    },
-
     autoCancelForm = true,
     autoShapeshift = true,
     prioritizeBear = true,
