@@ -758,7 +758,13 @@ local FO_EVENT_HANDLER = CreateFrame("Frame")
 FO_EVENT_HANDLER:RegisterEvent("VARIABLES_LOADED")
 FO_EVENT_HANDLER:RegisterEvent("PLAYER_ENTERING_WORLD")
 FO_EVENT_HANDLER:RegisterEvent("UNIT_INVENTORY_CHANGED")
-FO_EVENT_HANDLER:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+
+-- Intentionally disabled for stability.
+-- On this client, ACTIONBAR_SLOT_CHANGED may fire repeatedly during
+-- talent or Brainwasher operations and appears to cause client crashes.
+-- Action caches are still refreshed on login and equipment changes.
+-- *** Also see Line 796 ***
+-- FO_EVENT_HANDLER:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 
 FO_EVENT_HANDLER:SetScript("OnEvent", function()
     -- DEBUGG
@@ -786,7 +792,10 @@ FO_EVENT_HANDLER:SetScript("OnEvent", function()
     end
 
     -- CASE 3: Action Bar Cache Management
-    if event == "ACTIONBAR_SLOT_CHANGED" or event == "UNIT_INVENTORY_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
+
+    -- Intentionally disabled for stability.
+    -- if event == "ACTIONBAR_SLOT_CHANGED" or event == "UNIT_INVENTORY_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
+    if event == "UNIT_INVENTORY_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
         if event == "UNIT_INVENTORY_CHANGED" and arg1 ~= "player" then
             return
         end

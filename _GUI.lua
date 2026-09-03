@@ -13,7 +13,7 @@ if fo_Settings == nil then fo_Settings = {} end
 -- ==========================================
 -- 2. Minimap Button
 -- ==========================================
-local MyBtn = CreateFrame("Button", "MyMinimapButton", Minimap)
+local MyBtn = CreateFrame("Button", "fo_MinimapButton", UIParent)
 MyBtn:SetWidth(32); MyBtn:SetHeight(32); MyBtn:SetFrameStrata("HIGH")
 MyBtn:SetPoint("CENTER", UIParent, "CENTER")
 
