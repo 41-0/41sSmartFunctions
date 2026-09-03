@@ -5,8 +5,6 @@
 > [!IMPORTANT]
 > [SuperWoW](https://github.com/pepopo978/SuperwowInstallation) is required for this addon to function.<BR>
 > This AddOn is compatible with the English Client ONLY. Spell names and aura checks are hardcoded in English.<BR>
->May cause client crash when reseting talent. `/console reloadui` recommended before resetting talents.
-
 <BR>
 
 ## Table of Contents
