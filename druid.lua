@@ -155,7 +155,9 @@ function fo_cancelForm()
 
     -- [2] Count current buffs (Limit: 32)
     local buffCount = 0
-    for i = 0, 31 do
+    
+    -- GetPlayerBuff starts from 0
+    for i = 0, FO_MAX_UNIT_AURAS - 1 do
         if GetPlayerBuff(i, "HELPFUL") ~= -1 then
             buffCount = buffCount + 1
         else
@@ -164,17 +166,22 @@ function fo_cancelForm()
     end
 
     -- [3] Strategy A: If buff count < 32, use direct buff cancellation
-    if buffCount < 32 then
-        for i = 0, 31 do
+    if buffCount < FO_MAX_UNIT_AURAS then
+        -- GetPlayerBuff starts from 0
+        for i = 0, FO_MAX_UNIT_AURAS - 1 do
             local id = GetPlayerBuff(i, "HELPFUL")
             if id == -1 then break end
 
             -- Safely scan tooltip to identify the form buff
-            local buffName = fo_scan(function(scanner)
-                scanner:SetPlayerBuff(id)
-                local leftObj = _G["FoAuraScannerTextLeft1"]
-                return leftObj and leftObj:GetText()
-            end) or ""
+            local buffName = fo_scan(
+                function(scanner)
+                    scanner:SetPlayerBuff(id)
+                end,
+                function(scanner)
+                    local leftObj = _G["FoAuraScannerTextLeft1"]
+                    return leftObj and leftObj:GetText()
+                end
+            ) or ""
 
             -- Compare name with form keywords
             local nameLower = strlower(buffName)

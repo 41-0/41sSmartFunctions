@@ -269,51 +269,39 @@ end
 function fo_scanEquip(slotID, keyword)
     if not UnitName("player") then return false end
     if not GetInventoryItemLink("player", slotID) then return false end
+    if not keyword or keyword == "" then return false end
 
-    local link = GetInventoryItemLink("player", slotID)
-    -- DEBUG
-    -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Item Link for slot " .. slotID .. " is: " .. tostring(link))
+    local targetKeyword = strlower(keyword)
 
+    local found = fo_scan(
+        function(scanner)
+            return scanner:SetInventoryItem("player", slotID)
+        end,
+        function(scanner, hasItem)
+            if not hasItem then
+                return false
+            end
 
-    local hasItem = fo_scan(function(scanner)
-        return scanner:SetInventoryItem("player", slotID)
-    end)
+            local numLines = scanner:NumLines()
 
-    if not hasItem then
-        -- DEBUG
-        -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: fo_scanEquip - No item in slot " .. slotID)
-        return false
-    end
+            for i = 1, numLines do
+                local leftObj = _G["FoAuraScannerTextLeft" .. i]
+                local rightObj = _G["FoAuraScannerTextRight" .. i]
 
-    -- Get the number of lines in a tooltip
-    local numLines = _G["FoAuraScanner"]:NumLines()
-    local k = strlower(keyword)
+                local left = (leftObj and leftObj:GetText()) or ""
+                local right = (rightObj and rightObj:GetText()) or ""
+                local content = strlower(left .. " " .. right)
 
-    -- DEBUG
-    -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Scanning " .. numLines .. " lines for: " .. keyword)
+                if strfind(content, targetKeyword, 1, true) then
+                    return true
+                end
+            end
 
-    for i = 1, numLines do
-        local leftObj = _G["FoAuraScannerTextLeft" .. i]
-        local left = (leftObj and leftObj:GetText()) or ""
-
-        local rightObj = _G["FoAuraScannerTextRight" .. i]
-        local right = (rightObj and rightObj:GetText()) or ""
-
-        -- DEBUG
-        -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Line " .. i .. ": [" .. left .. "] [" .. right .. "]")
-
-        local content = strlower(left .. " " .. right)
-        if strfind(content, k, 1, true) then
-            -- DEBUG
-            -- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Keyword found on line " .. i)
-            found = true
-            break
+            return false
         end
-    end
+    )
 
-    fo_GetScanner():Hide()
-
-    return found
+    return found == true
 end
 
 -- fo_occupied: Returns true if the specified slot is occupied by an item.
@@ -369,7 +357,7 @@ FO_PROTECTED_KEYWORDS = {
 }
 
 function fo_dismount()
-    for i = 0, 31 do
+    for i = 0, FO_MAX_UNIT_AURAS - 1 do
         local id = GetPlayerBuff(i, "HELPFUL")
         -- Stop loop if no more buffs
         if id == -1 then break end
@@ -391,9 +379,15 @@ function fo_dismount()
 
                 if isMountCandidate then
                     -- 3. Retrieve buff name from tooltip for safety verification
-                    scanner:ClearLines()
-                    scanner:SetPlayerBuff(id)
-                    local buffName = FoAuraScannerTextLeft1:GetText() or ""
+                    local buffName = fo_scan(
+                        function(scanner)
+                            scanner:SetPlayerBuff(id)
+                        end,
+                        function(scanner)
+                            local leftObj = _G["FoAuraScannerTextLeft1"]
+                            return (leftObj and leftObj:GetText()) or ""
+                        end
+                    ) or ""
                     local buffNameLower = string.lower(buffName)
 
                     -- 4. Protection Logic
@@ -423,20 +417,6 @@ function fo_dismount()
     return false -- No mount/removable form found
 end
 
--- Main function to check if Auto-Shoot/Wand is active (Cache-based)
-function fo_isShooting()
-    if fo_shootSlot then
-        if IsAutoRepeatAction(fo_shootSlot) then
-            return true
-        end
-    end
-
-    -- if IsCurrentCast("Shoot") or IsCurrentCast("Auto Shot") then
-    --     return true
-    -- end
-
-    return false
-end
 
 function fo_startShoot()
     -- Check if already shooting

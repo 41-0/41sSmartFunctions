@@ -7,6 +7,9 @@ fo_Settings = fo_Settings or {}
 -- Shared with druid.lua, which is loaded after core.lua.
 FO_MAX_SPELLBOOK_SLOTS = 1024
 
+-- Maximum number of Buffs
+FO_MAX_UNIT_AURAS = 32
+
 
 -- ==========================================================
 -- SCANNER
@@ -23,24 +26,43 @@ end
 -- SAFE SCANNER WRAPPER
 -- ==========================================================
 -- func: A function that describes the task to be performed using the scanner
-function fo_scan(func)
+function fo_scan(setupFunc, readFunc)
     local scanner = fo_GetScanner()
-    -- Ensure the scanner is visible for interaction, then clear previous tooltip data
+
+    -- Remove data left by the previous scan.
+    scanner:Hide()
     scanner:SetOwner(WorldFrame, "ANCHOR_NONE")
+    scanner:ClearLines()
 
-    -- Execute the provided function safely and capture the return result
-    local status, result = pcall(func, scanner)
-    -- Force the tooltip to render its contents so we can scan the text.
-    scanner:Show()
+    -- Phase 1: Set the buff, debuff or item to scan.
+    local setupStatus, setupResult = pcall(setupFunc, scanner)
 
-    -- Return nil if the execution failed, otherwise return the actual result
-    if not status then
-        -- Debugging: Uncomment the line below to log errors in-game
-        -- DEFAULT_CHAT_FRAME:AddMessage("Scan Error: " .. tostring(result))
+    if not setupStatus then
+        scanner:Hide()
+        scanner:ClearLines()
         return nil
     end
-    -- scanner:Hide()
-    return result, scanner
+
+    -- Force the tooltip contents to be prepared before reading them.
+    scanner:Show()
+
+    local result = setupResult
+
+    -- Phase 2: Read the prepared tooltip when requested.
+    if readFunc then
+        local readStatus
+        readStatus, result = pcall(readFunc, scanner, setupResult)
+
+        if not readStatus then
+            result = nil
+        end
+    end
+
+    -- Always clean up after the scan.
+    scanner:Hide()
+    scanner:ClearLines()
+
+    return result
 end
 
 -- ==========================================================
@@ -58,7 +80,8 @@ function fo_showTargetTexture()
     local types = { "HELPFUL", "HARMFUL" }
     for _, auraType in pairs(types) do
         DEFAULT_CHAT_FRAME:AddMessage("|cffaaaaaa[" .. auraType .. "]|r")
-        for i = 1, 32 do
+        -- UnitBuff, UnitDebuff starts from 1
+        for i = 1, FO_MAX_UNIT_AURAS do
             local texture
             if auraType == "HELPFUL" then
                 texture = UnitBuff(unit, i)
@@ -293,52 +316,53 @@ end
 -- @param spellName: The pure name of the spell or a texture path segment.
 -- @param unit: A valid WoW UnitID (e.g., "player", "target").
 local function _CheckAuraByName(spellName, unit)
+    if not spellName or spellName == "" then return false end
     if not unit or not UnitExists(unit) then return false end
 
-    -- Search name is pre-lowered for consistency
     local searchName = strlower(spellName)
     local types = { "HELPFUL", "HARMFUL" }
 
     for _, auraType in pairs(types) do
-        local i = 1
-        while true do
-            local texture = (auraType == "HELPFUL") and UnitBuff(unit, i) or UnitDebuff(unit, i)
+        for i = 1, FO_MAX_UNIT_AURAS do
+            local texture
+
+            if auraType == "HELPFUL" then
+                texture = UnitBuff(unit, i)
+            else
+                texture = UnitDebuff(unit, i)
+            end
+
             if not texture then break end
 
-            -- 1. Check by Texture Path (Normalize to lowercase)
+            -- First try matching the texture path.
             if string.find(strlower(texture), searchName, 1, true) then
                 return true
             end
 
-            -- Check by Tooltip Text
-            -- Uses fo_scan to safely interact with the tooltip
-            local isMatch = fo_scan(function(scanner)
-                scanner:SetOwner(WorldFrame, "ANCHOR_NONE")
-                if auraType == "HELPFUL" then
-                    scanner:SetUnitBuff(unit, i)
-                else
-                    scanner:SetUnitDebuff(unit, i)
+            -- Fall back to matching the tooltip name.
+            local isMatch = fo_scan(
+                function(scanner)
+                    if auraType == "HELPFUL" then
+                        scanner:SetUnitBuff(unit, i)
+                    else
+                        scanner:SetUnitDebuff(unit, i)
+                    end
+                end,
+                function(scanner)
+                    local textLeft1 = _G["FoAuraScannerTextLeft1"]
+                    local tooltipText = textLeft1 and textLeft1:GetText()
+
+                    return tooltipText
+                        and strlower(tooltipText) == searchName
                 end
-
-                -- Retrieve the tooltip text using the global name
-                local textLeft1 = _G["FoAuraScannerTextLeft1"]
-                local tooltipText = textLeft1 and textLeft1:GetText()
-
-                -- Return true if text matches the search name
-                return tooltipText and strlower(tooltipText) == searchName
-            end)
+            )
 
             if isMatch then
-                fo_GetScanner():Hide()
                 return true
             end
-
-            fo_GetScanner():Hide()
-
-            i = i + 1
-            if i > 32 then break end
         end
     end
+
     return false
 end
 
@@ -570,6 +594,31 @@ function fo_UpdateActionCache()
 end
 
 
+-- ==========================================================
+-- Deferred Action Bar Cache Update
+-- ==========================================================
+
+local FO_ACTION_CACHE_UPDATE_DELAY = 0.5
+local fo_actionCacheElapsed = 0
+local fo_actionCacheUpdateFrame = CreateFrame("Frame")
+
+fo_actionCacheUpdateFrame:Hide()
+
+local function fo_RequestActionCacheUpdate()
+    -- Restart the delay whenever another related event arrives.
+    fo_actionCacheElapsed = 0
+    fo_actionCacheUpdateFrame:Show()
+end
+
+fo_actionCacheUpdateFrame:SetScript("OnUpdate", function()
+    fo_actionCacheElapsed = fo_actionCacheElapsed + (arg1 or 0)
+
+    if fo_actionCacheElapsed >= FO_ACTION_CACHE_UPDATE_DELAY then
+        fo_actionCacheUpdateFrame:Hide()
+        fo_actionCacheElapsed = 0
+        fo_UpdateActionCache()
+    end
+end)
 
 
 
@@ -632,7 +681,6 @@ function fo_isAttacking()
     return false
 end
 
-
 -- Starts auto-attack without toggling off.
 -- Does not break Stealth/Shadowmeld unless 'force' is provided.
 function fo_startAttack(force)
@@ -644,6 +692,20 @@ function fo_startAttack(force)
     end
 end
 
+-- Main function to check if Auto-Shoot/Wand is active (Cache-based)
+function fo_isShooting()
+    if fo_shootSlot then
+        if IsAutoRepeatAction(fo_shootSlot) then
+            return true
+        end
+    end
+
+    -- if IsCurrentCast("Shoot") or IsCurrentCast("Auto Shot") then
+    --     return true
+    -- end
+
+    return false
+end
 
 -- ==========================================================
 -- Modular Healing Engines
@@ -728,9 +790,7 @@ FO_EVENT_HANDLER:SetScript("OnEvent", function()
         if event == "UNIT_INVENTORY_CHANGED" and arg1 ~= "player" then
             return
         end
-        fo_attackSlot = nil
-        fo_shootSlot = nil
-        fo_UpdateActionCache()
+        fo_RequestActionCacheUpdate()
         return
     end
 
