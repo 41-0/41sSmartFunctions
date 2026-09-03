@@ -80,15 +80,15 @@ end
 -- Spammable Shapeshift Script
 -- ==========================================================
 local function GetBestBearForm()
-    local i = 1
-    while true do
+    for i = 1, FO_MAX_SPELLBOOK_SLOTS do
         local name = GetSpellName(i, "spell")
         if not name then break end
+
         if name == "Dire Bear Form" then
             return "Dire Bear Form"
         end
-        i = i + 1
     end
+
     return "Bear Form"
 end
 

@@ -3,6 +3,10 @@
 -- ==========================================================
 fo_Settings = fo_Settings or {}
 
+-- Safety limit for spellbook scans.
+-- Shared with druid.lua, which is loaded after core.lua.
+FO_MAX_SPELLBOOK_SLOTS = 1024
+
 
 -- ==========================================================
 -- SCANNER
@@ -231,18 +235,6 @@ function fo_registerFilter(func)
 end
 
 -- ==========================================================
--- HYBRID DUAL CAST
--- ==========================================================
--- Decoupled logic to decide between Help and Harm spells.
--- Designed for future expansion (e.g., fo_itemDual).
-function fo_dualLogic(helpVal, harmVal, unit)
-    if unit and UnitExists(unit) and UnitCanAttack("player", unit) then
-        return harmVal
-    end
-    return helpVal
-end
-
--- ==========================================================
 -- CORE CASTING FUNCTION (With Immediate Nil Guard)
 -- ==========================================================
 function fo_cast(spellName, ...)
@@ -363,12 +355,7 @@ function fo_aura(spellName, arg2, arg3, arg4)
     if not u then return false end
     return _CheckAuraByName(_GetPureName(spellName), u)
 end
--- function fo_aura(spellName, ...)
---     local args = arg or {}
---     local u = _GetSmartTarget(spellName, unpack(args))
---     if not u then return false end
---     return _CheckAuraByName(_GetPureName(spellName), u)
--- end
+
 
 --- [Direct Interface] Manual Unit ID Check
 -- For specific needs: "targettarget", "raid1", "focus", etc.
@@ -484,22 +471,16 @@ end
 -- Useful for skipping spells that are not ready yet.
 function fo_CD(spellName)
     local searchName = string.lower(spellName)
-    local i = 1
 
     -- Scan the spellbook for the specified spell
-    while true do
+    for i = 1, FO_MAX_SPELLBOOK_SLOTS do
         local name = GetSpellName(i, "spell")
-        if not name then break end -- Exit if we've reached the end of the spellbook
+        if not name then break end
 
-        -- Case-insensitive match
         if string.lower(name) == searchName then
             local _, duration = GetSpellCooldown(i, "spell")
-
-            -- If duration is greater than 1.5 seconds, it's a real cooldown.
-            -- If it's 0 or <= 1.5, it's either ready or just the Global Cooldown.
-            return (duration > 1.5)
+            return (duration or 0) > 1.5
         end
-        i = i + 1
     end
 
     -- Return false if the spell doesn't exist (cannot be on cooldown)
@@ -516,15 +497,16 @@ end
 -- Useful for talent-based logic or class-specific checks.
 function fo_hasSpell(spellName)
     local sName = string.lower(spellName)
-    local i = 1
-    while true do
+
+    for i = 1, FO_MAX_SPELLBOOK_SLOTS do
         local name = GetSpellName(i, "spell")
         if not name then break end
+    
         if string.lower(name) == sName then
             return true
         end
-        i = i + 1
     end
+    
     return false
 end
 
@@ -533,17 +515,22 @@ end
 function fo_getMaxRank(spellName)
     local targetName = string.lower(spellName)
     local maxRank = 0
-    local i = 1
-    while true do
+
+    for i = 1, FO_MAX_SPELLBOOK_SLOTS do
         local name, rank = GetSpellName(i, "spell")
         if not name then break end
-        if string.lower(name) == targetName then
-            -- Extract numeric value from rank string (e.g., "Rank 5" -> 5)
+
+        if string.lower(name) == targetName and rank then
             local _, _, rankNumber = string.find(rank, "(%d+)")
-            if rankNumber then maxRank = tonumber(rankNumber) end
+            if rankNumber then
+                local numericRank = tonumber(rankNumber)
+                if numericRank and numericRank > maxRank then
+                    maxRank = numericRank
+                end
+            end
         end
-        i = i + 1
     end
+
     return maxRank > 0 and maxRank or 1
 end
 
@@ -656,33 +643,6 @@ function fo_startAttack(force)
         end
     end
 end
-
-
--- function fo_isShooting()
---     if not fo_shootSlot or GetActionTexture(fo_shootSlot) == nil then
---         fo_UpdateActionCache()
---     end
-
---     if fo_shootSlot then
---         -- Check if it's already "marching ants" (active)
---         if IsAutoRepeatAction(fo_shootSlot) == 1 then
---             return true -- Already shooting, do nothing
---         else
---             return false
---         end
---     end
--- end
-
-
--- function fo_startShoot()
---     if fo_isShooting() then
---         -- Debug
---         -- DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[Shooting]")
---         return
---     else
---         CastSpellByName("Shoot")
---     end
--- end
 
 
 -- ==========================================================

@@ -18,7 +18,7 @@ MyBtn:SetWidth(32); MyBtn:SetHeight(32); MyBtn:SetFrameStrata("HIGH")
 MyBtn:SetPoint("CENTER", UIParent, "CENTER")
 
 local icon = MyBtn:CreateTexture(nil, "BORDER")
-icon:SetTexture("Interface\\Icons\\Spell_Holy_Purify")
+icon:SetTexture("Interface\\Icons\\Spell_Nature_StoneSkinTotem")
 icon:SetWidth(20); icon:SetHeight(20); icon:SetPoint("CENTER", MyBtn, "CENTER")
 
 local border = MyBtn:CreateTexture(nil, "OVERLAY")
@@ -28,8 +28,9 @@ border:SetWidth(52); border:SetHeight(52); border:SetPoint("TOPLEFT", MyBtn, "TO
 -- Function to handle minimap button orbit
 local function UpdateButtonPosition(angle)
     local centerX, centerY = Minimap:GetCenter()
-    local x = math.cos(angle or 135) * 80
-    local y = math.sin(angle or 135) * 80
+    local defaultAngle = math.rad(135)
+    local x = math.cos(angle or defaultAngle) * 80
+    local y = math.sin(angle or defaultAngle) * 80
     MyBtn:ClearAllPoints()
     MyBtn:SetPoint("CENTER", "UIParent", "BOTTOMLEFT", centerX + x, centerY + y)
     fo_Settings.angle = angle
@@ -86,6 +87,7 @@ end)
 MyBtn:SetScript("OnEnter", function()
     GameTooltip:SetOwner(this, "ANCHOR_LEFT")
     GameTooltip:SetText("41's Smart Functions")
+    GameTooltip:AddLine("Click to open settings.", 1, 1, 1)
     GameTooltip:Show()
 end)
 MyBtn:SetScript("OnLeave", function()
