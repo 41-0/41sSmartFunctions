@@ -15,7 +15,7 @@ if fo_Settings == nil then fo_Settings = {} end
 -- ==========================================
 local MyBtn = CreateFrame("Button", "fo_MinimapButton", Minimap)
 MyBtn:SetWidth(32); MyBtn:SetHeight(32); MyBtn:SetFrameStrata("HIGH")
-MyBtn:SetPoint("CENTER", UIParent, "CENTER")
+MyBtn:SetPoint("CENTER", Minimap, "CENTER")
 
 local icon = MyBtn:CreateTexture(nil, "BORDER")
 icon:SetTexture("Interface\\Icons\\Spell_Nature_StoneSkinTotem")
@@ -28,11 +28,11 @@ border:SetWidth(52); border:SetHeight(52); border:SetPoint("TOPLEFT", MyBtn, "TO
 -- Function to handle minimap button orbit
 local function UpdateButtonPosition(angle)
     local centerX, centerY = Minimap:GetCenter()
-    local defaultAngle = math.rad(135)
+    local defaultAngle = math.rad(260)
     local x = math.cos(angle or defaultAngle) * 80
     local y = math.sin(angle or defaultAngle) * 80
     MyBtn:ClearAllPoints()
-    MyBtn:SetPoint("CENTER", "UIParent", "BOTTOMLEFT", centerX + x, centerY + y)
+    MyBtn:SetPoint("CENTER", Minimap, "CENTER", x, y)
     fo_Settings.angle = angle
 end
 
