@@ -378,6 +378,7 @@ The following calls are equivalent:
 ```lua
 fo_aura("Puncture", ">=10")
 fo_aura("Inner Fire", "<=3", "s")
+
 ```
 
 - Without a stack condition, only aura presence is checked.
@@ -393,6 +394,7 @@ fo_playerAuraTimeLeft("Tiger's Fury", 2)
 ```
 
 Returns `true` when a matching buff or debuff on the player has **more than 0 and at most 2(for example) seconds remaining**.
+
 
 Returns `false` when:
 
