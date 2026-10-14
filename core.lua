@@ -313,9 +313,80 @@ end
 -- ==========================================================
 
 --- Core logic for aura scanning using texture paths and tooltip text.
+
+-- Extract the stack condition while preserving other argument positions.
+local function _ParseAuraArgs(...)
+    local condition
+    local targets = {}
+    local count = 0
+
+    for i = 1, arg.n do
+        local value = arg[i]
+
+        if type(value) == "string"
+            and string.find(value, "^%s*[<>=~]") then
+
+            -- Multiple conditions are treated as invalid.
+            if condition then
+                return false
+            end
+
+            condition = value
+        else
+            count = count + 1
+            targets[count] = value
+        end
+    end
+
+    return condition, targets[1], targets[2], targets[3]
+end
+
+-- No condition means the original existence check.
+local function _CheckAuraStacks(stacks, condition)
+    if condition == nil then
+        return true
+    end
+    if type(condition) ~= "string" then
+        return false
+    end
+
+    local _, _, operator, number = string.find(
+        condition,
+        "^%s*([<>=~]+)%s*(%d+)%s*$"
+    )
+
+    if not operator then
+        return false
+    end
+
+    local required = tonumber(number)
+
+    -- Non-stacking auras may report zero; treat their presence as one.
+    stacks = tonumber(stacks) or 0
+    if stacks < 1 then
+        stacks = 1
+    end
+
+    if operator == "=" or operator == "==" then
+        return stacks == required
+    elseif operator == "~=" then
+        return stacks ~= required
+    elseif operator == ">" then
+        return stacks > required
+    elseif operator == ">=" then
+        return stacks >= required
+    elseif operator == "<" then
+        return stacks < required
+    elseif operator == "<=" then
+        return stacks <= required
+    end
+
+    return false
+end
+
 -- @param spellName: The pure name of the spell or a texture path segment.
 -- @param unit: A valid WoW UnitID (e.g., "player", "target").
-local function _CheckAuraByName(spellName, unit)
+local function _CheckAuraByName(spellName, unit, condition)
     if not spellName or spellName == "" then return false end
     if not unit or not UnitExists(unit) then return false end
 
@@ -324,18 +395,19 @@ local function _CheckAuraByName(spellName, unit)
 
     for _, auraType in pairs(types) do
         for i = 1, FO_MAX_UNIT_AURAS do
-            local texture
+            local texture, stacks
 
             if auraType == "HELPFUL" then
-                texture = UnitBuff(unit, i)
+                texture, stacks = UnitBuff(unit, i)
             else
-                texture = UnitDebuff(unit, i)
+                texture, stacks = UnitDebuff(unit, i)
             end
 
             if not texture then break end
 
             -- First try matching the texture path.
-            if string.find(strlower(texture), searchName, 1, true) then
+            if string.find(strlower(texture), searchName, 1, true)
+                and _CheckAuraStacks(stacks, condition) then
                 return true
             end
 
@@ -357,7 +429,7 @@ local function _CheckAuraByName(spellName, unit)
                 end
             )
 
-            if isMatch then
+            if isMatch and _CheckAuraStacks(stacks, condition) then
                 return true
             end
         end
@@ -374,25 +446,92 @@ end
 -- Usage in Macro: fo_aura("Rejuvenation", "s") -> Self
 --                 fo_aura("Moonfire", "m")     -> Mouseover/Target
 
-function fo_aura(spellName, arg2, arg3, arg4)
-    local u = _GetSmartTarget(spellName, arg2, arg3, arg4)
-    if not u then return false end
-    return _CheckAuraByName(_GetPureName(spellName), u)
+function fo_aura(spellName, ...)
+    local condition, arg2, arg3, arg4 = _ParseAuraArgs(unpack(arg, 1, arg.n))
+    if condition == false then return false end
+
+    local unit = _GetSmartTarget(spellName, arg2, arg3, arg4)
+    if not unit then return false end
+
+    return _CheckAuraByName(_GetPureName(spellName), unit, condition)
 end
 
 
 --- [Direct Interface] Manual Unit ID Check
 -- For specific needs: "targettarget", "raid1", "focus", etc.
 -- This is kept separate to prevent interference with Smart Logic.
-function fo_auraUnit(spellName, unit)
-    local targetUnit = unit or "target"
-    return _CheckAuraByName(_GetPureName(spellName), targetUnit)
+function fo_auraUnit(spellName, ...)
+    local condition, unit = _ParseAuraArgs(unpack(arg, 1, arg.n))
+    if condition == false then return false end
+
+    return _CheckAuraByName(
+        _GetPureName(spellName),
+        unit or "target",
+        condition
+    )
 end
 
 --- [Shortcut Interface] Dedicated Player Check
 -- The most common check, optimized for speed and clarity.
-function fo_auraSelf(spellName)
-    return _CheckAuraByName(_GetPureName(spellName), "player")
+function fo_auraSelf(spellName, condition)
+    return _CheckAuraByName(
+        _GetPureName(spellName),
+        "player",
+        condition
+    )
+end
+
+
+-- Example: fo_playerAuraTimeLeft("Rejuvenation", 3)
+-- Returns true when a matching player aura has <= seconds remaining.
+function fo_playerAuraTimeLeft(spellName, seconds)
+    if type(spellName) ~= "string" or spellName == "" then
+        return false
+    end
+    if type(seconds) ~= "number" or seconds < 0 then
+        return false
+    end
+
+    local searchName = strlower(_GetPureName(spellName))
+    local filters = { "HELPFUL", "HARMFUL" }
+
+    for _, filter in ipairs(filters) do
+        for i = 0, FO_MAX_UNIT_AURAS - 1 do
+            local buffIndex = GetPlayerBuff(i, filter)
+            if not buffIndex or buffIndex < 0 then
+                break
+            end
+
+            local texture = GetPlayerBuffTexture(buffIndex)
+            local isMatch = texture
+                and string.find(strlower(texture), searchName, 1, true)
+
+            if not isMatch then
+                isMatch = fo_scan(
+                    function(scanner)
+                        scanner:SetPlayerBuff(buffIndex)
+                    end,
+                    function(scanner)
+                        local line = _G["FoAuraScannerTextLeft1"]
+                        local name = line and line:GetText()
+                        return name and strlower(name) == searchName
+                    end
+                )
+            end
+
+            if isMatch then
+                local remaining = GetPlayerBuffTimeLeft(buffIndex)
+                -- A zero timer also represents an aura without a duration.
+                if type(remaining) == "number"
+                    and remaining > 0
+                    and remaining <= seconds then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
 end
 
 -- ==========================================================

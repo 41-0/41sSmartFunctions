@@ -327,48 +327,102 @@ For users who want to build complex custom macros, here is the complete list of 
 
 ## 🔍 Aura Checker (`fo_aura`)
 
-The Aura Checker ensures your macros are "aware" of active buffs and debuffs. It prevents mana waste by stopping you from clipping DoTs or overwriting active HoTs.
+Check whether a unit has a buff or debuff, optionally with a stack-count condition. All checker functions return `true` or `false`.
 
 ### Key Features
 
-- **Smart Targeting System**: Follows STS.
-- **Auto-Rank Filtering**: Automatically strips rank data (e.g., `"Regrowth(Rank 5)"` is treated as `"Regrowth"`).
-- **Texture Support**: Match by name (local) or texture path (global) to avoid localization issues.
+- **Smart Targeting System**: `fo_aura` follows the same targeting rules as `fo_cast`.
+- **Stack Conditions**: Compare stack counts using `=`, `==`, `~=`, `>`, `>=`, `<`, or `<=`.
+- **Flexible Argument Order**: Target arguments and stack conditions can appear in either order after the spell name.
+- **Rank Filtering**: Rank suffixes are removed automatically. `"Regrowth(Rank 5)"` is treated as `"Regrowth"`.
+- **Texture Support**: Match by localized aura name or by an icon texture path segment.
 
 ### 🛠️ API Reference
 
-| Function                   | Description                                     | Example            |
-| -------------------------- | ----------------------------------------------- | ------------------ |
-| **`fo_aura("name", ...)`** | Follows STS logic. "s", "m", "WoWUnitID" works. | `fo_aura("Renew")` |
+| Function | Description | Example |
+| --- | --- | --- |
+| `fo_aura("name", ...)` | Checks a unit resolved by the Smart Targeting System. | `fo_aura("Renew", "s")` |
+| `fo_auraUnit("name", ...)` | Checks an explicit unit ID. Defaults to `"target"`. | `fo_auraUnit("Renew", "party1")` |
+| `fo_auraSelf("name", condition)` | Checks the player. The stack condition is optional. | `fo_auraSelf("Inner Fire")` |
+| `fo_playerAuraTimeLeft("name", seconds)` | Checks whether a player aura has the specified number of seconds or less remaining. | `fo_playerAuraTimeLeft("Rejuvenation", 3)` |
+
+### Arguments
+
+The **spell name must always be the first argument**.
+
+- **Aura name**: Use the localized display name, such as `"Moonfire"`.
+- **Texture path segment**: Use an internal icon name, such as `"Spell_Nature_Starfall"`. Texture matching uses a case-insensitive substring search.
+- **Target**: For `fo_aura`, use the same targeting arguments as `fo_cast`, such as `"s"` or `"m"`. For `fo_auraUnit`, use an explicit unit ID such as `"target"`, `"party1"`, or `"targettarget"`.
+- **Stack condition**: An optional comparison string, such as `"=3"` or `">=3"`.
+
+Name matching is case-insensitive.
 
 > [!TIP]
-> **Smart Flags:** `fo_aura` supports the same flags as `fo_cast`.
-> Use `fo_aura("Moonfire", "m")` to specifically check a hostile mouseover target.
+> Use `/script fo_showTargetTexture()` to print the current target's buff and debuff texture paths to chat.
 
-#### Arguments:
+### Stack Conditions
 
-- **`spellName`**: The name of the buff/debuff or its **Texture Path**.
-- **Name Match**: Use the display name (e.g., `"Moonfire"`).
-- **Texture Match**: Use the internal icon name (e.g., `"Spell_Nature_Starfall"`).
-- **🔍 Texture ID**: Use `/script fo_showTargetTexture()` to print active texture names to chat.
+| Condition | Returns `true` when |
+| --- | --- |
+| `"=3"` or `"==3"` | The aura has exactly 3 stacks. |
+| `"~=3"` | The aura has a stack count other than 3. |
+| `">3"` | The aura has more than 3 stacks. |
+| `">=3"` | The aura has at least 3 stacks. |
+| `"<3"` | The aura has fewer than 3 stacks. |
+| `"<=3"` | The aura has at most 3 stacks. |
 
----
+Use a non-negative integer for the stack count. Spaces are allowed, for example `">= 3"`.
+
+The following calls are equivalent:
+
+```lua
+fo_aura("Lifebloom", ">=3", "s")
+fo_aura("Lifebloom", "s", ">=3")
+
+fo_auraUnit("Lifebloom", "=3", "party1")
+fo_auraUnit("Lifebloom", "party1", "=3")
+```
+
+- Without a stack condition, only aura presence is checked.
+- A missing aura always returns `false`, including for conditions such as `"<3"` or `"~=3"`.
+- A present aura reporting zero stacks is treated as having one stack.
+- Invalid comparison conditions return `false`.
+- Specify only one stack condition per call.
+
+### ⏱️ Player Aura Remaining Time
+
+```lua
+fo_playerAuraTimeLeft("Rejuvenation", 3)
+```
+
+Returns `true` when a matching buff or debuff on the player has **more than 0 and at most 3(for example) seconds remaining**.
+
+Returns `false` when:
+
+- The aura is missing.
+- The remaining time exceeds the specified threshold.
+- The aura has no time limit or reports a zero timer.
+- The threshold is not a number or is negative.
+
+This function checks only auras **on the player**, regardless of who applied them. It does not accept target arguments or stack conditions.
 
 ### 📝 Macro Examples
 
 ```lua
--- 1. Standard Smart Buffing
--- Casts only if the target is missing the buff.
+-- Cast Rejuvenation only when the resolved target lacks it.
 /script if not fo_aura("Rejuvenation") then fo_cast("Rejuvenation") end
 
--- 2. Hostile Mouseover Check
--- Prevents re-casting Moonfire if the mouseover target already has the DoT.
+-- Check Moonfire using hostile mouseover targeting.
 /script if not fo_aura("Moonfire", "m") then fo_cast("Moonfire", "m") end
 
--- 3. Self Buff Detection
--- Ensures you don't waste mana re-buffing yourself.
-/script if not fo_aura("Inner Fire", "s") then fo_cast("Inner Fire", "s") end
+-- Cast Inner Fire only when it is missing from the player.
+/script if not fo_auraSelf("Inner Fire") then fo_cast("Inner Fire", "s") end
 
+-- Cast Lifebloom on yourself when missing or below 3 stacks.
+/script if not fo_aura("Lifebloom", "s", ">=3") then fo_cast("Lifebloom", "s") end
+
+-- Refresh your Rejuvenation when missing or within 3 seconds of expiry.
+/script if not fo_auraSelf("Rejuvenation") or fo_playerAuraTimeLeft("Rejuvenation", 3) then fo_cast("Rejuvenation", "s") end
 ```
 
 ---
