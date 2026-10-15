@@ -254,6 +254,8 @@ AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_cast('Moonfire', 'm')", "Enable mo
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_castDual('Rejuvenation', 'Moonfire',)", "Helpful/Harmful. 'm','s' still works")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_aura('moonfire')", "Aura Checker (same rule as fo_cast)")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_auraUnit('Faerie Fire', 'targettarget')", "Aura Checker (Manual Target)")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_playerAuraTimeLeft(\"Tiger's Fury\", 2)", "Checks aura's remaining seconds")
+
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_showTargetTexture()", "Show all textures on current target")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_RS('p>80%')", "Resource Checker l=life, p=power")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_RS('ld>1000', 's')", "ld = life deficit, pd = power deficit")
