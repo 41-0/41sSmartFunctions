@@ -449,6 +449,40 @@ AddApiAuto(DruidPanel, "DRUID", "fo_isFrenziedRegen()", "True during Frenzied Re
 
 
 -- ==========================================
+-- Hunter Tab
+-- ==========================================
+local HunterPanel = CreateClassPanel("HUNTER")
+CreateTabButton(4, "Hunter", "HUNTER", 135)
+
+AddPanelDescription(HunterPanel,
+    "Macro helpers for Hunters.\nCheck your active pet's Focus before using a pet ability.")
+AddSnippetGuide(HunterPanel, "--- Use this condition inside a macro ---")
+AddApiAuto(HunterPanel, "HUNTER", "fo_hunterPetFocus('>=50')", "True if your pet has at least 50 Focus")
+
+-- ==========================================
+-- Paladin Tab
+-- ==========================================
+local PaladinPanel = CreateClassPanel("PALADIN")
+CreateTabButton(5, "Paladin", "PALADIN", 195)
+AddPanelDescription(PaladinPanel,
+    "Blessings follow Smart Targeting; Seals always check yourself.\nUse a short name such as 'might' or 'wisdom'; omit it to check any listed aura.")
+AddSnippetGuide(PaladinPanel, "--- Blessings: regular / Greater / either; Seals: self only ---")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isRegularBlessingActive()", "Any regular Blessing on smart target")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isGreaterBlessingActive()", "Any Greater Blessing on smart target")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isBlessingActive()", "Any regular or Greater Blessing")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isBlessingActive('might')", "Might: regular or Greater")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isRegularBlessingActive('wisdom')", "Regular Wisdom only")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isGreaterBlessingActive('kings')", "Greater Kings only")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isBlessingActive(nil, 's')", "Any listed Blessing on yourself")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isBlessingActive('might', 'party1')", "Might on an explicit unit")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isSealActive()", "Any listed Seal on yourself")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isSealActive('wisdom')", "Seal of Wisdom on yourself")
+AddApiAuto(PaladinPanel, "PALADIN", "/script fo_castSeal('wisdom')", "Cast SoW only if no listed Seal is active")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isPaladinAuraActive()", "Any listed Paladin Aura on yourself")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isPaladinAuraActive('devotion')", "Devotion Aura on yourself")
+AddApiAuto(PaladinPanel, "PALADIN", "fo_isPaladinAuraActive('fire resistance')", "Fire Resistance Aura on yourself")
+
+-- ==========================================
 -- 6. Events & Launch
 -- ==========================================
 -- Initial Tab Setup

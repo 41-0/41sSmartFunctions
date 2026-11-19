@@ -14,14 +14,16 @@
 3. [Combat Utilities](#combat)
 4. [Items & Consumables](#items)
 5. [Druid Specific Features](#druid-specific-features)
-6. [Full Technical Reference (Advanced)](#full-technical-reference-advanced)
+6. [Hunter Specific Features](#hunter-specific-features)
+7. [Paladin Specific Features](#paladin-specific-features)
+8. [Full Technical Reference (Advanced)](#full-technical-reference-advanced)
 
 - [Aura Checker (fo_aura)](#-aura-checker-fo_aura)
 - [Resource Checker (fo_RS)](#resource-checker)
 - [Cooldown Checker](#cd-checker)
 - [Status / Equipment Checker](#status-equipment-checkers)
 
-7. [Installation](#installation)
+9. [Installation](#installation)
 
 <BR><BR>
 
@@ -320,6 +322,76 @@ All core features can be toggled via the In-game Configuration Panel.
 ---
 
 <BR><BR><BR>
+
+## Hunter Specific Features
+
+### Pet Focus (`fo_hunterPetFocus`)
+
+`fo_hunterPetFocus(">=50")` returns `true` when your active Hunter pet has at least 50 Focus. The condition uses raw Focus points, not a percentage.
+
+Supported operators: `>`, `>=`, `<`, `<=`, `=`, `==`, `~=`, and `!=`. Use a non-negative whole number. The function returns `false` for invalid conditions, non-Hunters, or when the pet is missing, dead, or does not use Focus.
+
+```lua
+/script if fo_hunterPetFocus('>=50') then DEFAULT_CHAT_FRAME:AddMessage('Pet has at least 50 Focus') end
+```
+
+The Hunter tab contains a copyable condition for use in your macros.
+
+<BR><BR>
+
+## Paladin Specific Features
+
+The Paladin tab provides copyable Blessing and Seal conditions. These functions return actual booleans and check the listed buffs regardless of who cast them.
+
+| Function | Checks |
+| --- | --- |
+| `fo_isRegularBlessingActive(name, arg2, arg3)` | Regular Blessings only |
+| `fo_isGreaterBlessingActive(name, arg2, arg3)` | Greater Blessings only |
+| `fo_isBlessingActive(name, arg2, arg3)` | Either version |
+| `fo_isSealActive(name)` | Seals on the player only |
+
+All names are optional, case-insensitive short names. Omit the name to match any listed aura.
+
+- Blessings: `might`, `wisdom`, `salvation`, `light`, `sanctuary`, `kings`.
+- Seals: `righteousness`, `crusader`, `wisdom`, `justice`, `light`, `command`.
+- `crusader` also matches the English buff name **Seal of the Crusader**.
+- `fo_isSealactive` is an alias of `fo_isSealActive`.
+
+Blessings follow the existing Smart Targeting System: friendly mouseover, otherwise target, then the configured self fallback. Optional target arguments use the same rules as `fo_cast`. Use `nil` as the name when specifying a target without selecting a Blessing. Seals always check the player.
+
+```lua
+fo_isRegularBlessingActive()
+fo_isGreaterBlessingActive()
+fo_isBlessingActive('might')
+fo_isBlessingActive(nil, 's')
+fo_isBlessingActive('wisdom', 'party1')
+fo_isSealActive()
+fo_isSealActive('wisdom')
+```
+
+### Paladin Aura detection
+
+```lua
+fo_isPaladinAuraActive()
+fo_isPaladinAuraActive('devotion')
+fo_isPaladinAuraActive('fire resistance')
+```
+
+Checks buffs on the player. Without a name, returns `true` if any of these seven Auras is present: `devotion`, `retribution`, `concentration`, `shadow resistance`, `fire resistance`, `frost resistance`, `sanctity`. Names are case-insensitive; omit the `Aura` suffix. Unknown names or missing buffs return `false`.
+
+This checks the Aura received by the player, including Auras from other Paladins. It does not check which Aura the player has selected on the Aura bar. Other effects such as Righteous Fury do not count.
+
+### Cast a Seal only when none is active
+
+```lua
+/script fo_castSeal('light')
+```
+
+`fo_castSeal(name)` casts the requested Seal on yourself only when none of the six listed Seals is active. An existing Seal is preserved, even if it differs from the requested one. The short names are the same as for `fo_isSealActive`; `crusader` casts **Seal of the Crusader**. A missing or unsupported name does nothing. Casting uses `fo_cast` with the self flag.
+
+A missing aura or unit, or an unsupported name, returns `false`. Only buffs are scanned. Regular and Greater versions are distinguished by their exact English tooltip names rather than their shared icons. Other Blessings and Seals are not included.
+
+<BR><BR>
 
 # Full Technical Reference (Advanced)
 

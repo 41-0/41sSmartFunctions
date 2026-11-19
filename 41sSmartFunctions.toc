@@ -5,6 +5,8 @@ data.lua
 core.lua
 item.lua
 druid.lua
+hunter.lua
+paladin.lua
 _GUI.lua
 
 ## SavedVariables: fo_Settings
