@@ -339,6 +339,20 @@ The Hunter tab contains a copyable condition for use in your macros.
 
 <BR><BR>
 
+### Hunter Aspects
+
+```lua
+fo_isAspectActive()             -- Any listed Aspect received by the player
+fo_isAspectActive('hawk')       -- A specific Aspect received by the player
+/script fo_castAspect('cheetah')
+```
+
+Supported short names: `monkey`, `hawk`, `wolf`, `cheetah`, `pack`, `beast`, `wild`, `viper`.
+
+`fo_castAspect(name)` activates the requested Aspect only when it is not already selected. A different active Aspect is replaced. Repeated calls preserve the requested Aspect. The casting function requires a name; omitting it or using an unsupported name does nothing. Detection without a name checks any of the eight listed Aspects. Names are case-insensitive.
+
+Where exposed, casting checks the player's own stance bar so another Hunter's group Aspect does not suppress activation. Otherwise it checks the player's buffs. Spells must be learned in the current client/server version.
+
 ## Paladin Specific Features
 
 The Paladin tab provides copyable Blessing and Seal conditions. These functions return actual booleans and check the listed buffs regardless of who cast them.
@@ -380,6 +394,16 @@ fo_isPaladinAuraActive('fire resistance')
 Checks buffs on the player. Without a name, returns `true` if any of these seven Auras is present: `devotion`, `retribution`, `concentration`, `shadow resistance`, `fire resistance`, `frost resistance`, `sanctity`. Names are case-insensitive; omit the `Aura` suffix. Unknown names or missing buffs return `false`.
 
 This checks the Aura received by the player, including Auras from other Paladins. It does not check which Aura the player has selected on the Aura bar. Other effects such as Righteous Fury do not count.
+
+### Activate an Aura without toggling it off
+
+```lua
+/script fo_castPaladinAura('devotion')
+```
+
+`fo_castPaladinAura(name)` activates the specified Aura only when it is not already selected on your own Aura bar. Another active Aura is replaced. Repeated calls do not toggle the selected Aura off. Supported names are the same seven short names as `fo_isPaladinAuraActive`.
+
+Unlike received-buff detection, the casting check uses your own Aura bar where available, so another Paladin's Aura does not prevent you from selecting yours. If the Aura is not exposed there, it falls back to received-buff detection. A missing or unsupported name does nothing.
 
 ### Cast a Seal only when none is active
 

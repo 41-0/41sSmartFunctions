@@ -458,6 +458,9 @@ AddPanelDescription(HunterPanel,
     "Macro helpers for Hunters.\nCheck your active pet's Focus before using a pet ability.")
 AddSnippetGuide(HunterPanel, "--- Use this condition inside a macro ---")
 AddApiAuto(HunterPanel, "HUNTER", "fo_hunterPetFocus('>=50')", "True if your pet has at least 50 Focus")
+AddApiAuto(HunterPanel, "HUNTER", "fo_isAspectActive()", "Any listed Aspect on yourself")
+AddApiAuto(HunterPanel, "HUNTER", "fo_isAspectActive('hawk')", "Aspect of the Hawk on yourself")
+AddApiAuto(HunterPanel, "HUNTER", "/script fo_castAspect('cheetah')", "Activate Cheetah without toggling it off")
 
 -- ==========================================
 -- Paladin Tab
@@ -481,6 +484,7 @@ AddApiAuto(PaladinPanel, "PALADIN", "/script fo_castSeal('wisdom')", "Cast SoW o
 AddApiAuto(PaladinPanel, "PALADIN", "fo_isPaladinAuraActive()", "Any listed Paladin Aura on yourself")
 AddApiAuto(PaladinPanel, "PALADIN", "fo_isPaladinAuraActive('devotion')", "Devotion Aura on yourself")
 AddApiAuto(PaladinPanel, "PALADIN", "fo_isPaladinAuraActive('fire resistance')", "Fire Resistance Aura on yourself")
+AddApiAuto(PaladinPanel, "PALADIN", "/script fo_castPaladinAura('devotion')", "Activate Devotion without toggling it off")
 
 -- ==========================================
 -- 6. Events & Launch

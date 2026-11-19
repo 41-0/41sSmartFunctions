@@ -110,3 +110,22 @@ function fo_isPaladinAuraActive(name)
     end
     return hasPaladinAura("player", names)
 end
+
+-- Do not toggle off an Aura already selected on your own Aura bar.
+function fo_castPaladinAura(name)
+    name = normalizeName(name)
+    if not name or not paladinAuraNames[name] then return end
+    local spellName = name .. " aura"
+    if GetNumShapeshiftForms and GetShapeshiftFormInfo then
+        for i = 1, GetNumShapeshiftForms() do
+            local texture, formName, active = GetShapeshiftFormInfo(i)
+            if type(formName) == "string" and string.lower(formName) == spellName then
+                if active and active ~= 0 then return end
+                fo_cast(spellName, "s")
+                return
+            end
+        end
+    end
+    -- Fallback for clients that do not expose the Aura on the stance bar.
+    if not fo_isPaladinAuraActive(name) then fo_cast(spellName, "s") end
+end
