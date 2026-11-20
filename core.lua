@@ -762,12 +762,17 @@ end)
 
 
 
--- Returns true if the player is currently in combat
-function fo_isCombat()
-    -- UnitAffectingCombat is the standard 1.12 API for this check
-    if UnitAffectingCombat("player") then
-        return true
-    end
+-- Resolve the unit using the shared Smart Targeting System.
+function fo_isCombat(arg2, arg3)
+    local unit = _GetSmartTarget(nil, arg2, arg3)
+    if not unit or not UnitExists(unit) then return false end
+    if UnitAffectingCombat(unit) then return true end
+    return false
+end
+
+-- Player-only check, independent of targeting and self-cast settings.
+function fo_playerInCombat()
+    if UnitAffectingCombat("player") then return true end
     return false
 end
 
@@ -794,7 +799,7 @@ end
 
 -- Spamsafe stealth entry with Form-awareness for Druids.
 function fo_startStealth()
-    if fo_isStealth() or fo_isCombat() then
+    if fo_isStealth() or fo_playerInCombat() then
         return
     end
     local _, class = UnitClass("player")

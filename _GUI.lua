@@ -1,7 +1,7 @@
 -- ==========================================
 -- 0. Configuration & Constants
 -- ==========================================
-local WINDOW_WIDTH = 650
+local WINDOW_WIDTH = 860 -- One additional 210px snippet column
 local WINDOW_HEIGHT = 620
 local MAX_ITEMS_PER_COLUMN = 10 -- Max items before starting a new column
 
@@ -275,6 +275,8 @@ AddApiAuto(GlobalPanel, "GLOBAL", "fo_has2H()", "True if 2H equipped (Self Only)
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasShield()", "Returns true if Shield equipped")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasDW()", "Returns true if Dual-Wielding")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasSpell('swiftmend')", "True if the spell is in your spellbook")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_isCombat()", "Combat check on smart target; s/m/unit supported")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_playerInCombat()", "Returns true if you are in combat")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_isStealth()", "Returns true if Stealthed(any kind)")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_isAttacking()", "Returns true if attacking")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_isShooting()", "Returns true if shooting")

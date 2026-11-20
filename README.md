@@ -670,13 +670,32 @@ If you frequently switch between specs (e.g., Feral and Restoration), you can us
 
 ```
 
-### ⚔️ Combat & Action State (SELF ONLY)
+### ⚔️ Combat & Action State
 
 Useful for fine-tuning macro behavior based on your character's current activity.
 
+`fo_playerInCombat()` checks only the player, regardless of the selected target or pet combat state. It returns a boolean and takes no arguments. `fo_isCombat(arg2, arg3)` now follows the same Smart Targeting System as `fo_cast`: friendly mouseover first, then target, then self if the self-cast fallback is enabled. The `m` flag also allows hostile mouseover, `s` forces self, and an explicit unit ID selects that unit. A missing or unresolved unit returns `false`. Both functions return booleans.
+
+```lua
+fo_isCombat()           -- Smart target
+fo_isCombat('m')        -- Also allow hostile mouseover
+fo_isCombat('s')        -- Force self
+fo_isCombat('target')   -- Explicit target
+fo_isCombat('party1')   -- Explicit party member
+fo_isCombat('pet')      -- Pet
+fo_playerInCombat()     -- Always self
+```
+
+**Compatibility note:** `fo_isCombat()` without arguments previously checked only the player. Existing macros needing that behavior should use `fo_playerInCombat()` or `fo_isCombat('s')`.
+
+```lua
+/script if fo_playerInCombat() then DEFAULT_CHAT_FRAME:AddMessage("In combat") end
+```
+
 | Function               | Returns `true` if...                                    |
 | ---------------------- | ------------------------------------------------------- |
-| **`fo_isCombat()`**    | You are currently in combat.                            |
+| **`fo_playerInCombat()`** | You are currently in combat (`true`); otherwise `false`. |
+| **`fo_isCombat(...)`** | The resolved smart target is in combat. |
 | **`fo_isStealth()`**   | You are currently Stealthed, Prowling, or Shadowmelded. |
 | **`fo_isShooting()`**  | You are currently using a Wand or Ranged Auto-shot.     |
 | **`fo_isAttacking()`** | You are currently in Melee Auto-attack mode.            |
