@@ -271,8 +271,9 @@ AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_healthPot()", "Drink highest healt
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_manaPot()", "Drink highest mana potion")
 AddApiAuto(GlobalPanel, "GLOBAL", "/script fo_item('name')", "Uses the item by name.")
 
-AddApiAuto(GlobalPanel, "GLOBAL", "fo_has2H()", "True if 2H equipped (Self Only)")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_has1H()", "True if 1H equipped (Self Only)")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasShield()", "Returns true if Shield equipped")
+AddApiAuto(GlobalPanel, "GLOBAL", "fo_has2H()", "True if 2H equipped (Self Only)")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasDW()", "Returns true if Dual-Wielding")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_hasSpell('swiftmend')", "True if the spell is in your spellbook")
 AddApiAuto(GlobalPanel, "GLOBAL", "fo_isCombat()", "Combat check on smart target; s/m/unit supported")

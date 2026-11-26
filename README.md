@@ -615,6 +615,7 @@ Identify your currently equipped gear. These functions use tooltip scanning to e
 
 | Function             | Returns `true` if...                                   |
 | -------------------- | ------------------------------------------------------ |
+| **`fo_has1H()`**     | A **One-Handed** weapon is equipped in your main-hand. |
 | **`fo_hasShield()`** | A **Shield** is equipped in your off-hand.             |
 | **`fo_has2H()`**     | A **Two-Handed** weapon is equipped in your main-hand. |
 | **`fo_hasDW()`**     | You are **Dual-Wielding** (Weapons in both MH and OH). |

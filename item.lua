@@ -324,6 +324,11 @@ function fo_hasShield()
     return fo_occupiedBy(17, "Shield")
 end
 
+-- Returns true if a One Hand weaopn is equipped (only checks Main Hand slot)
+function fo_has1H()
+    return fo_occupiedBy(16, "Main Hand") or fo_occupiedBy(16, "one Hand")
+end
+
 -- Returns true if a Two-Handed weapon is equipped
 function fo_has2H()
     -- Check for "Two-Hand" (matches Two-Handed too)
